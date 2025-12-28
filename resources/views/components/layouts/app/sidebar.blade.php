@@ -3,12 +3,14 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-gradient-to-br from-blue-50 to-white dark:from-zinc-900 dark:to-zinc-800">
-        {{-- Use the shared navbar component which renders a sidebar for authenticated users --}}
+    <body class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-900">
+        {{-- Use the shared navbar component --}}
         <x-navbar />
 
-        <main class="min-h-screen lg:ml-64 p-6">
-            {{ $slot }}
+        <main class="pt-20 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto py-6">
+                {{ $slot }}
+            </div>
         </main>
 
         @stack('scripts')

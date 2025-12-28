@@ -1,72 +1,105 @@
 @auth
-    <!-- Authenticated sidebar for dashboard and app pages -->
-    <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-zinc-900 text-zinc-100 border-r border-zinc-800 hidden lg:flex flex-col">
-        <div class="h-16 flex items-center px-4 border-b border-zinc-800">
-            <a href="{{ route('home') }}" class="flex items-center gap-3">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span class="text-lg font-semibold">IRF-CES</span>
-            </a>
-        </div>
+    <!-- Authenticated top navbar matching landing page -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-700 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <a href="{{ route('home') }}" class="flex items-center gap-3">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span class="text-xl font-bold text-zinc-900 dark:text-white">IRF-CES</span>
+                </a>
 
-        <div class="px-3 py-4 border-b border-zinc-800 relative">
-            <button id="sidebar-profile-btn" type="button" aria-expanded="false" aria-controls="sidebar-profile-menu" class="w-full text-left flex items-center gap-3 px-2 py-2 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors">
-                <div class="w-9 h-9 bg-zinc-700 rounded flex items-center justify-center text-sm font-medium">{{ strtoupper(substr(auth()->user()->name ?? 'U',0,2)) }}</div>
-                <div class="flex-1 text-left">
-                    <div class="text-sm font-medium">{{ auth()->user()->name ?? 'User' }}</div>
-                    <div class="text-xs text-zinc-400">View profile</div>
+                <!-- Navigation Links -->
+                <div class="hidden md:flex items-center gap-1">
+                    <a href="{{ url('/dashboard') }}" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('dashboard') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        Dashboard
+                    </a>
+                    @if(auth()->user()->isAdministrator())
+                        <a href="{{ route('staff.index') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                            Staff
+                        </a>
+                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                            Quotes
+                        </a>
+                        <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                            Inventory
+                        </a>
+                    @endif
                 </div>
-                <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </button>
 
-            <div id="sidebar-profile-menu" class="profile-menu hidden absolute left-3 right-3 bottom-full mb-2 bg-white dark:bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg overflow-hidden text-left z-60">
-                <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900">Profile & Settings</a>
-                <div class="border-t border-zinc-100 dark:border-zinc-700"></div>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900">Log Out</button>
-                </form>
+                <!-- User Menu -->
+                <div class="flex items-center gap-3">
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" @click.away="open = false" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white text-sm font-semibold">
+                                {{ strtoupper(substr(auth()->user()->name ?? 'U',0,1)) }}
+                            </div>
+                            <span class="hidden sm:block text-sm font-medium text-zinc-900 dark:text-white">{{ auth()->user()->name ?? 'User' }}</span>
+                            <svg class="w-4 h-4 text-zinc-500" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown -->
+                        <div x-show="open" 
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95"
+                             class="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 py-1"
+                             style="display: none;">
+                            <div class="px-4 py-2 border-b border-zinc-100 dark:border-zinc-700">
+                                <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ auth()->user()->name }}</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ auth()->user()->role?->label() }}</p>
+                            </div>
+                            <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700">
+                                Profile Settings
+                            </a>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 border-t border-zinc-100 dark:border-zinc-700">
+                                    Log Out
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto px-3 py-4">
-            <p class="text-xs text-zinc-400 px-3 mb-3">Platform</p>
-            <ul class="space-y-1">
-                <li>
-                    <a href="{{ url('/dashboard') }}" class="flex items-center gap-3 px-3 py-2 rounded hover:bg-zinc-800 transition-colors {{ request()->is('dashboard') ? 'bg-zinc-800' : '' }}">
-                        <svg class="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                        <span class="text-sm">Dashboard</span>
+        <!-- Mobile Navigation -->
+        <div class="md:hidden border-t border-zinc-200 dark:border-zinc-700" x-data="{ mobileOpen: false }">
+            <div class="px-4 py-2">
+                <button @click="mobileOpen = !mobileOpen" class="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    <span>Menu</span>
+                    <svg class="w-5 h-5" :class="{'rotate-180': mobileOpen}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="mobileOpen" x-transition class="mt-2 space-y-1" style="display: none;">
+                    <a href="{{ url('/dashboard') }}" class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('dashboard') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                        Dashboard
                     </a>
-                </li>
-                @if(auth()->user()->isAdministrator())
-                    <li>
-                        <a href="{{ route('staff.index') }}" wire:navigate class="flex items-center gap-3 px-3 py-2 rounded hover:bg-zinc-800 transition-colors {{ request()->is('staff*') ? 'bg-zinc-800' : '' }}">
-                            <svg class="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                            <span class="text-sm">Manage Staff</span>
+                    @if(auth()->user()->isAdministrator())
+                        <a href="{{ route('staff.index') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Staff
                         </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="flex items-center gap-3 px-3 py-2 rounded hover:bg-zinc-800 transition-colors {{ request()->is('admin/quote-requests') ? 'bg-zinc-800' : '' }}">
-                            <svg class="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                            <span class="text-sm">Quote Requests</span>
+                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Quotes
                         </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="flex items-center gap-3 px-3 py-2 rounded hover:bg-zinc-800 transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-zinc-800' : '' }}">
-                            <svg class="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                            <span class="text-sm">Parts Inventory</span>
+                        <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Inventory
                         </a>
-                    </li>
-                @endif
-                <!-- Additional nav items removed per request -->
-            </ul>
-        </nav>
-    </aside>
-
-    <!-- spacer to offset page content on large screens -->
-    <div class="hidden lg:block w-64 flex-shrink-0" aria-hidden="true"></div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </nav>
 @else
     <!-- Top navigation for guests -->
     <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-700">
