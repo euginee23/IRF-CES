@@ -79,13 +79,4 @@
             Log in
         </button>
     </form>
-
-    @if (Route::has('register'))
-        <div class="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
-            <span>New to our service?</span>
-            <a href="{{ route('register') }}" class="text-blue-600 dark:text-blue-400 hover:underline font-medium ml-1">
-                Create an account
-            </a>
-        </div>
-    @endif
 </x-layouts.auth>
