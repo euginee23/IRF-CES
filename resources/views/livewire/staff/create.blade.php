@@ -2,6 +2,7 @@
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Models\Skillset;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Volt\Component;
@@ -12,6 +13,26 @@ new class extends Component {
     public string $password = '';
     public string $password_confirmation = '';
     public string $role = '';
+    public array $skillsets = [];
+
+    public function addSkill(): void
+    {
+        $this->skillsets[] = [
+            'name' => '',
+            'description' => '',
+            'years_experience' => 0,
+            'certifications' => '',
+            'is_primary' => false,
+        ];
+    }
+
+    public function removeSkill(int $index): void
+    {
+        if (isset($this->skillsets[$index])) {
+            unset($this->skillsets[$index]);
+            $this->skillsets = array_values($this->skillsets);
+        }
+    }
 
     public function layout()
     {
@@ -30,6 +51,12 @@ new class extends Component {
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', Password::defaults(), 'confirmed'],
             'role' => ['required', 'string', 'in:' . implode(',', Role::values())],
+            'skillsets' => ['array'],
+            'skillsets.*.name' => ['nullable', 'string', 'max:255'],
+            'skillsets.*.description' => ['nullable', 'string'],
+            'skillsets.*.years_experience' => ['nullable', 'integer', 'min:0'],
+            'skillsets.*.certifications' => ['nullable', 'string'],
+            'skillsets.*.is_primary' => ['nullable', 'boolean'],
         ]);
 
         $user = User::create([
@@ -38,6 +65,21 @@ new class extends Component {
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
         ]);
+
+        // Attach skillsets when technician
+        if ($validated['role'] === Role::TECHNICIAN->value && !empty($this->skillsets)) {
+            foreach ($this->skillsets as $s) {
+                if (empty(trim($s['name'] ?? ''))) continue;
+                Skillset::create([
+                    'user_id' => $user->id,
+                    'name' => $s['name'] ?? null,
+                    'description' => $s['description'] ?? null,
+                    'years_experience' => (int)($s['years_experience'] ?? 0),
+                    'certifications' => $s['certifications'] ?? null,
+                    'is_primary' => !empty($s['is_primary']),
+                ]);
+            }
+        }
 
         $this->dispatch('success', message: 'Staff member created successfully.');
         $this->redirect(route('staff.index'), navigate: true);
@@ -169,6 +211,71 @@ new class extends Component {
                         </svg>
                         <span>Select the role that best describes this staff member's responsibilities and access level</span>
                     </p>
+                
+                {{-- Technician Skillsets --}}
+                @if($role === \App\Enums\Role::TECHNICIAN->value)
+                    <div class="pt-6 border-t border-zinc-200 dark:border-zinc-700">
+                        <div class="mb-4 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Technician Skillsets</h3>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Add specialties and details about the technician's areas of expertise (e.g., LCD repair, board-level, water damage).</p>
+                            </div>
+                            <div>
+                                <button type="button" wire:click="addSkill" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700">Add Skill</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            @foreach($skillsets as $i => $s)
+                                <div class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                            <div>
+                                                <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Specialty</label>
+                                                <select wire:model.defer="skillsets.{{ $i }}.name" class="w-full mt-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                                                    <option value="">Select specialty...</option>
+                                                    @foreach(\App\Enums\TechnicianSkill::getGrouped() as $category => $skills)
+                                                        <optgroup label="{{ $category }}">
+                                                            @foreach($skills as $skill)
+                                                                <option value="{{ $skill->value }}">{{ $skill->value }}</option>
+                                                            @endforeach
+                                                        </optgroup>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Years Experience</label>
+                                                <input type="number" min="0" wire:model.defer="skillsets.{{ $i }}.years_experience" class="w-full mt-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900" />
+                                            </div>
+                                            <div>
+                                                <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Primary</label>
+                                                <div class="mt-1">
+                                                    <label class="inline-flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer">
+                                                        <input type="checkbox" wire:model.defer="skillsets.{{ $i }}.is_primary" class="w-4 h-4" />
+                                                        <span class="text-xs">Mark as primary specialty</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 grid grid-cols-1 gap-3">
+                                        <div>
+                                            <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Certifications</label>
+                                            <input type="text" wire:model.defer="skillsets.{{ $i }}.certifications" class="w-full mt-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900" placeholder="e.g., iFixit, Huawei certified" />
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Notes / Description</label>
+                                            <input type="text" wire:model.defer="skillsets.{{ $i }}.description" class="w-full mt-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900" placeholder="Optional details..." />
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-end mt-3">
+                                        <button type="button" wire:click="removeSkill({{ $i }})" class="text-sm text-red-600 hover:underline">Remove</button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
                 </div>
 
                 <!-- Password -->

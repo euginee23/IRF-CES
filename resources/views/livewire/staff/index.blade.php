@@ -2,6 +2,7 @@
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Models\Skillset;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Rule as ValidationRule;
@@ -17,6 +18,7 @@ new class extends Component {
     // Modal states
     public bool $showCreateModal = false;
     public bool $showEditModal = false;
+    public bool $showSkillsetsModal = false;
     
     // Form fields
     public ?int $editUserId = null;
@@ -25,6 +27,10 @@ new class extends Component {
     public string $password = '';
     public string $password_confirmation = '';
     public string $role = '';
+    
+    // Skillsets
+    public ?int $skillsetsUserId = null;
+    public array $skillsets = [];
 
     public function layout()
     {
@@ -80,8 +86,79 @@ new class extends Component {
     {
         $this->showCreateModal = false;
         $this->showEditModal = false;
-        $this->reset(['editUserId', 'name', 'email', 'password', 'password_confirmation', 'role']);
+        $this->showSkillsetsModal = false;
+        $this->reset(['editUserId', 'name', 'email', 'password', 'password_confirmation', 'role', 'skillsetsUserId', 'skillsets']);
         $this->resetErrorBag();
+    }
+
+    public function openSkillsetsModal(int $userId): void
+    {
+        $user = User::findOrFail($userId);
+        $this->skillsetsUserId = $user->id;
+        $this->skillsets = $user->skillsets->map(function ($s) {
+            return [
+                'id' => $s->id,
+                'name' => $s->name,
+                'description' => $s->description,
+                'years_experience' => $s->years_experience,
+                'certifications' => $s->certifications,
+                'is_primary' => (bool)$s->is_primary,
+            ];
+        })->toArray();
+        $this->resetErrorBag();
+        $this->showSkillsetsModal = true;
+    }
+
+    public function addSkill(): void
+    {
+        $this->skillsets[] = [
+            'name' => '',
+            'description' => '',
+            'years_experience' => 0,
+            'certifications' => '',
+            'is_primary' => false,
+        ];
+    }
+
+    public function removeSkill(int $index): void
+    {
+        if (isset($this->skillsets[$index])) {
+            unset($this->skillsets[$index]);
+            $this->skillsets = array_values($this->skillsets);
+        }
+    }
+
+    public function saveSkillsets(): void
+    {
+        $user = User::findOrFail($this->skillsetsUserId);
+
+        $rules = [
+            'skillsets' => ['array'],
+            'skillsets.*.name' => ['nullable', 'string', 'max:255'],
+            'skillsets.*.description' => ['nullable', 'string'],
+            'skillsets.*.years_experience' => ['nullable', 'integer', 'min:0'],
+            'skillsets.*.certifications' => ['nullable', 'string'],
+            'skillsets.*.is_primary' => ['nullable', 'boolean'],
+        ];
+
+        $this->validate($rules);
+
+        // Delete existing skillsets and recreate
+        $user->skillsets()->delete();
+        foreach ($this->skillsets as $s) {
+            if (empty(trim($s['name'] ?? ''))) continue;
+            Skillset::create([
+                'user_id' => $user->id,
+                'name' => $s['name'] ?? null,
+                'description' => $s['description'] ?? null,
+                'years_experience' => (int)($s['years_experience'] ?? 0),
+                'certifications' => $s['certifications'] ?? null,
+                'is_primary' => !empty($s['is_primary']),
+            ]);
+        }
+
+        $this->dispatch('success', message: 'Technician skillsets updated successfully.');
+        $this->closeModals();
     }
 
     public function createStaff(): void
@@ -319,12 +396,14 @@ new class extends Component {
                                                 Edit Your Profile
                                             </a>
                                         @else
-                                            <button wire:click="openEditModal({{ $user->id }})" class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-white bg-blue-50 hover:bg-blue-600 dark:bg-blue-900/30 dark:hover:bg-blue-600 rounded-lg transition-all hover:shadow-md">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                                </svg>
-                                                Edit
-                                            </button>
+                                            @if($user->role?->value === 'technician')
+                                                <button type="button" wire:click="openSkillsetsModal({{ $user->id }})" class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-white bg-purple-50 hover:bg-purple-600 dark:bg-purple-900/30 dark:hover:bg-purple-600 rounded-lg transition-all hover:shadow-md">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                                    </svg>
+                                                    Manage Skillsets
+                                                </button>
+                                            @endif
                                         @endif
                                         @if($user->id !== auth()->id())
                                             <button
@@ -602,6 +681,142 @@ new class extends Component {
                                 </button>
                                 <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40">
                                     Update Staff Member
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <!-- Manage Skillsets Modal -->
+        @if($showSkillsetsModal)
+            <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showSkillsetsModal') }">
+                <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+                    <!-- Backdrop -->
+                    <div class="fixed inset-0 transition-opacity bg-zinc-900/75 backdrop-blur-sm" wire:click="closeModals"></div>
+
+                    <!-- Modal Panel -->
+                    <div class="relative inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-zinc-800 shadow-2xl rounded-2xl">
+                        <!-- Header -->
+                        <div class="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 px-6 py-5 border-b border-zinc-200 dark:border-zinc-700">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xl font-bold text-zinc-900 dark:text-white">Manage Technician Skillsets</h3>
+                                        <p class="text-sm text-zinc-600 dark:text-zinc-400">Add and manage repair specialties and certifications</p>
+                                    </div>
+                                </div>
+                                <button wire:click="closeModals" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Form -->
+                        <form wire:submit="saveSkillsets" class="p-6">
+                            <div class="space-y-6">
+                                <!-- Header with Add Button -->
+                                <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700">
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-zinc-900 dark:text-white">Specialties & Skills</h4>
+                                        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Select repair categories and add expertise details</p>
+                                    </div>
+                                    <button type="button" wire:click="addSkill" class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                        </svg>
+                                        Add Skill
+                                    </button>
+                                </div>
+
+                                <!-- Skillsets List -->
+                                <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                                    @if(empty($skillsets))
+                                        <div class="text-center py-12">
+                                            <svg class="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                            </svg>
+                                            <p class="mt-4 text-sm text-zinc-500 dark:text-zinc-400">No skills added yet. Click "Add Skill" to get started.</p>
+                                        </div>
+                                    @else
+                                        @foreach($skillsets as $i => $s)
+                                            <div class="p-5 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                                                <div class="flex items-start gap-4">
+                                                    <div class="flex-1 space-y-4">
+                                                        <!-- Row 1: Specialty, Years, Primary -->
+                                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                            <div>
+                                                                <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Specialty *</label>
+                                                                <select wire:model.defer="skillsets.{{ $i }}.name" class="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                                                    <option value="">Select specialty...</option>
+                                                                    @foreach(\App\Enums\TechnicianSkill::getGrouped() as $category => $skills)
+                                                                        <optgroup label="{{ $category }}">
+                                                                            @foreach($skills as $skill)
+                                                                                <option value="{{ $skill->value }}">{{ $skill->value }}</option>
+                                                                            @endforeach
+                                                                        </optgroup>
+                                                                    @endforeach
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Years Experience</label>
+                                                                <input type="number" min="0" wire:model.defer="skillsets.{{ $i }}.years_experience" class="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="0" />
+                                                            </div>
+                                                            <div>
+                                                                <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Primary Specialty</label>
+                                                                <label class="inline-flex items-center gap-2 px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                                                                    <input type="checkbox" wire:model.defer="skillsets.{{ $i }}.is_primary" class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500" />
+                                                                    <span class="text-xs text-zinc-700 dark:text-zinc-300">Mark as primary</span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Row 2: Certifications -->
+                                                        <div>
+                                                            <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Certifications</label>
+                                                            <input type="text" wire:model.defer="skillsets.{{ $i }}.certifications" class="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="e.g., iFixit Certified, Manufacturer Training" />
+                                                        </div>
+
+                                                        <!-- Row 3: Description -->
+                                                        <div>
+                                                            <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Notes / Description</label>
+                                                            <textarea wire:model.defer="skillsets.{{ $i }}.description" rows="2" class="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none" placeholder="Optional: Additional details about this skillset..."></textarea>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Remove Button -->
+                                                    <button type="button" wire:click="removeSkill({{ $i }})" class="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Remove this skill">
+                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-zinc-200 dark:border-zinc-700">
+                                <button type="button" wire:click="closeModals" class="px-5 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 font-semibold rounded-xl transition-all">
+                                    Cancel
+                                </button>
+                                <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40">
+                                    <span class="flex items-center gap-2">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        Save Skillsets
+                                    </span>
                                 </button>
                             </div>
                         </form>

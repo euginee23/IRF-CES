@@ -1,3 +1,2 @@
-import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm';
-
-Livewire.start();
+// Livewire and Alpine are automatically loaded via @vite directive
+// No need to manually import or start them

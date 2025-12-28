@@ -24,6 +24,7 @@ Route::get('dashboard', function () {
 Route::middleware(['auth', 'role:administrator'])->prefix('admin')->name('admin.')->group(function () {
     Volt::route('dashboard', 'admin.dashboard')->name('dashboard');
     Volt::route('quote-requests', 'admin.quote-requests')->name('quote-requests');
+    Volt::route('parts-inventory', 'admin.parts-inventory')->name('parts-inventory');
 });
 
 // Technician routes
@@ -46,5 +47,7 @@ Route::middleware(['auth'])->group(function () {
     // Staff Management (Administrator only)
     Route::middleware('role:administrator')->prefix('staff')->name('staff.')->group(function () {
         Volt::route('/', 'staff.index')->name('index');
+        Volt::route('/create', 'staff.create')->name('create');
+        Volt::route('/{user}/edit', 'staff.edit')->name('edit');
     });
 });

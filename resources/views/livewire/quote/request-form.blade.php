@@ -26,28 +26,111 @@ new class extends Component {
     #[Validate('required|string|min:10')]
     public string $issue_description = '';
 
-    #[Validate('nullable|array|max:5')]
-    #[Validate('images.*', 'nullable|image|max:5120')] // 5MB max per image
     public array $images = [];
+    public array $newImages = [];
+    public int $uploadIteration = 0;
 
     public bool $submitted = false;
+    
+    protected function rules(): array
+    {
+        return [
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:15360', // 15MB max per image
+            'newImages.*' => 'image|max:15360',
+        ];
+    }
+    
+    public function updatedNewImages()
+    {
+        $this->validate([
+            'newImages.*' => 'image|max:15360',
+        ]);
+        
+        // Merge new images with existing ones
+        foreach ($this->newImages as $image) {
+            $this->images[] = $image;
+        }
+        
+        // Reset newImages and increment iteration
+        $this->newImages = [];
+        $this->uploadIteration++;
+    }
 
-    // Common phone manufacturers
+    // Comprehensive phone manufacturers (sorted alphabetically with popular brands first)
     public function manufacturers(): array
     {
         return [
-            'Apple',
+            // Most Popular in Philippines
             'Samsung',
-            'Huawei',
+            'Apple',
             'Xiaomi',
             'Oppo',
             'Vivo',
+            'Realme',
+            'Huawei',
+            'Infinix',
+            'Tecno',
+            'Cherry Mobile',
+            
+            // Chinese Brands (Popular in Philippines)
             'OnePlus',
+            'Honor',
+            'ZTE',
+            'Lenovo',
+            'Meizu',
+            'Coolpad',
+            'TCL',
+            'Alcatel',
+            'Blackview',
+            'Doogee',
+            'Elephone',
+            'Gionee',
+            'Ulefone',
+            'Umidigi',
+            'Leagoo',
+            'Oukitel',
+            'Cubot',
+            'Bluboo',
+            'Vernee',
+            'Homtom',
+            'Gretel',
+            'Leeco',
+            'Nubia',
+            'iQOO',
+            'Poco',
+            'Redmi',
+            'Black Shark',
+            
+            // International Brands
             'Google',
             'Motorola',
-            'LG',
-            'Sony',
             'Nokia',
+            'Sony',
+            'LG',
+            'HTC',
+            'Asus',
+            'Acer',
+            
+            // Other Asian Brands
+            'Itel',
+            'Lava',
+            'Micromax',
+            'Karbonn',
+            'Panasonic',
+            'Sharp',
+            'Fujitsu',
+            
+            // Regional/Local Philippines
+            'MyPhone',
+            'CloudFone',
+            'Starmobile',
+            'Torque',
+            'O+',
+            'SKK Mobile',
+            'Kata',
+            
+            // Other/Unknown
             'Other',
         ];
     }
@@ -55,6 +138,12 @@ new class extends Component {
     public function submit(): void
     {
         $this->validate();
+
+        // Validate max number of images
+        if (count($this->images) > 5) {
+            $this->addError('images', 'You can upload a maximum of 5 images.');
+            return;
+        }
 
         $imagePaths = [];
         if (!empty($this->images)) {
@@ -78,6 +167,13 @@ new class extends Component {
 
         $this->submitted = true;
         $this->reset(['name', 'email', 'phone', 'manufacturer', 'model', 'issue_description', 'images']);
+    }
+
+    public function removeImage(int $index): void
+    {
+        array_splice($this->images, $index, 1);
+        $this->images = array_values($this->images); // Re-index array
+        $this->uploadIteration++;
     }
 
     public function resetForm(): void
@@ -217,40 +313,96 @@ new class extends Component {
                     <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                         Upload Photos (Optional)
                     </label>
-                    <div class="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-6 text-center hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
-                        <input type="file" id="images" wire:model="images" multiple accept="image/*" class="hidden" />
-                        <label for="images" class="cursor-pointer block">
-                            <svg class="w-12 h-12 mx-auto text-zinc-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    
+                    <!-- Drag and Drop Zone (clickable + keyboard accessible) -->
+                    <div 
+                        x-data="{ isDragging: false }" 
+                        @dragover.prevent="isDragging = true"
+                        @dragleave.prevent="isDragging = false"
+                        @drop.prevent="
+                            isDragging = false;
+                            let dt = $event.dataTransfer;
+                            let input = document.getElementById('newImages');
+                            input.files = dt.files;
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                        "
+                        @click="document.getElementById('newImages').click()"
+                        @keydown.enter.prevent="document.getElementById('newImages').click()"
+                        @keydown.space.prevent="document.getElementById('newImages').click()"
+                        :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-zinc-300 dark:border-zinc-700'"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Upload images - click or drag and drop"
+                        class="cursor-pointer border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200">
+
+                        <input type="file" 
+                               id="newImages" 
+                               wire:model="newImages" 
+                               multiple 
+                               accept="image/*" 
+                               class="hidden" 
+                               wire:key="upload-{{ $uploadIteration }}" />
+                        
+                        <div wire:loading.remove wire:target="newImages" class="space-y-3">
+                            <svg class="w-16 h-16 mx-auto text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                             </svg>
-                            <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Click to upload images</p>
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">PNG, JPG up to 5MB each (max 5 images)</p>
-                        </label>
+                            <div>
+                                <label for="newImages" class="inline-block cursor-pointer">
+                                    <span class="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">Click to upload</span>
+                                    <span class="text-sm text-zinc-600 dark:text-zinc-400"> or drag and drop</span>
+                                </label>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">PNG, JPG, JPEG, GIF up to 15MB each</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ count($images) }} image(s) uploaded</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Loading State -->
+                        <div wire:loading wire:target="newImages" class="space-y-3">
+                            <svg class="animate-spin w-12 h-12 mx-auto text-blue-600" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Uploading...</p>
+                        </div>
                     </div>
+                    
+                    @error('images') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                     @error('images.*') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                     
+                    <!-- Image Previews -->
                     @if (!empty($images))
-                        <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                            @foreach($images as $index => $image)
-                                <div class="relative group">
-                                    <img src="{{ $image->temporaryUrl() }}" alt="Preview" class="w-full h-24 object-cover rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                    <button type="button" wire:click="$set('images.{{ $index }}', null)" class="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                        </svg>
+                        <div class="mt-6 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-sm font-semibold text-zinc-900 dark:text-white">Uploaded Images ({{ count($images) }})</h4>
+                                @if(count($images) > 0)
+                                    <button type="button" wire:click="$set('images', [])" class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors">
+                                        Clear All
                                     </button>
-                                </div>
-                            @endforeach
+                                @endif
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                @foreach($images as $index => $image)
+                                    @if($image)
+                                        <div class="relative group" wire:key="image-{{ $index }}-{{ $uploadIteration }}">
+                                            <div class="aspect-square rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border-2 border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                                                <img src="{{ $image->temporaryUrl() }}" alt="Preview {{ $index + 1 }}" class="w-full h-full object-cover">
+                                            </div>
+                                            <button type="button" wire:click="removeImage({{ $index }})" 
+                                                    class="absolute -top-2 -right-2 w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                            </button>
+                                            <div class="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-sm rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <p class="text-xs text-white font-medium truncate">Image {{ $index + 1 }}</p>
+                                            </div>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
                         </div>
                     @endif
-
-                    <div wire:loading wire:target="images" class="mt-3 text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Uploading...
-                    </div>
                 </div>
 
                 <!-- Submit Button -->

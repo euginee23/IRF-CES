@@ -1,4 +1,4 @@
-# IRF-CES - Customer Service Platform
+# IRF-CES - Intelligent Repair Flow & Client Engagement System
 
 A modern customer service and repair management platform built with Laravel, featuring role-based access control, repair quote request management, user authentication, and comprehensive administrative capabilities.
 

@@ -1,7 +1,7 @@
 <x-layouts.auth>
     <div class="mb-8 text-center">
-        <h2 class="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Welcome Back</h2>
-        <p class="text-zinc-600 dark:text-zinc-400">Track your repairs and stay connected</p>
+        <h2 class="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Login</h2>
+        <p class="text-zinc-600 dark:text-zinc-400">Staff login</p>
     </div>
 
     <!-- Session Status -->
