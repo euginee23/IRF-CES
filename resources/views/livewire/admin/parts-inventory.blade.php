@@ -23,7 +23,8 @@ new class extends Component {
     public int $reorder_point = 0;
     public float $unit_price = 0;
     public string $supplier = '';
-    public string $location = '';
+    public string $manufacturer = '';
+    public string $model = '';
     public bool $is_active = true;
 
     public function layout()
@@ -34,6 +35,26 @@ new class extends Component {
     public function title()
     {
         return __('Parts Inventory');
+    }
+
+    public function manufacturers(): array
+    {
+        return [
+            'Samsung', 'Apple', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Huawei',
+            'Infinix', 'Tecno', 'Cherry Mobile', 'OnePlus', 'Honor', 'ZTE',
+            'Lenovo', 'Meizu', 'Coolpad', 'TCL', 'Alcatel', 'Blackview',
+            'Doogee', 'Elephone', 'Gionee', 'Ulefone', 'Umidigi', 'Leagoo',
+            'Oukitel', 'Cubot', 'Bluboo', 'Vernee', 'Homtom', 'Gretel',
+            'Leeco', 'Nubia', 'iQOO', 'Poco', 'Redmi', 'Black Shark',
+            'Google', 'Motorola', 'Nokia', 'Sony', 'LG', 'HTC', 'Asus', 'Acer',
+            'Itel', 'Lava', 'Micromax', 'Karbonn', 'Panasonic', 'Sharp',
+            'Fujitsu', 'Kyocera', 'Casio', 'NEC', 'Toshiba', 'Siemens',
+            'Philips', 'BLU', 'Cat', 'Emporia', 'Fairphone', 'Wiko', 'Archos',
+            'Crosscall', 'Gigaset', 'Energizer', 'Plum', 'Vertu', 'Point Mobile',
+            'Honeywell', 'Zebra', 'Sonim', 'Kyocera', 'Caterpillar', 'Bullitt',
+            'Ruggear', 'AGM', 'Conquest', 'Runbo', 'Thuraya', 'Inmarsat',
+            'Iridium', 'Globalstar', 'Other',
+        ];
     }
 
     public function with(): array
@@ -57,7 +78,16 @@ new class extends Component {
         }
 
         $parts = $query->latest()->paginate(15);
-        $categories = Part::distinct()->pluck('category')->filter();
+        $categories = collect([
+            'Display & Input Components',
+            'Power & Charging Components',
+            'Motherboard & Core Components',
+            'Camera & Audio Components',
+            'Network & Connectivity Components',
+            'Sensors & Security Components',
+            'Structural & Physical Components',
+            'Accessories & External Parts',
+        ]);
         $lowStockCount = Part::whereRaw('in_stock <= reorder_point')->count();
 
         return [
@@ -85,7 +115,8 @@ new class extends Component {
         $this->reorder_point = $this->selectedPart->reorder_point;
         $this->unit_price = $this->selectedPart->unit_price;
         $this->supplier = $this->selectedPart->supplier ?? '';
-        $this->location = $this->selectedPart->location ?? '';
+        $this->manufacturer = $this->selectedPart->manufacturer ?? '';
+        $this->model = $this->selectedPart->model ?? '';
         $this->is_active = $this->selectedPart->is_active;
         $this->isEditing = true;
         $this->showModal = true;
@@ -102,7 +133,8 @@ new class extends Component {
             'reorder_point' => 'required|integer|min:0',
             'unit_price' => 'required|numeric|min:0',
             'supplier' => 'nullable|string|max:255',
-            'location' => 'nullable|string|max:255',
+            'manufacturer' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ]);
 
@@ -153,7 +185,8 @@ new class extends Component {
         $this->reorder_point = 0;
         $this->unit_price = 0;
         $this->supplier = '';
-        $this->location = '';
+        $this->manufacturer = '';
+        $this->model = '';
         $this->is_active = true;
         $this->resetValidation();
     }
@@ -351,6 +384,7 @@ new class extends Component {
                         <thead class="bg-zinc-100 dark:bg-zinc-900/70 border-b-2 border-zinc-200 dark:border-zinc-800">
                             <tr>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Part Details</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Manufacturer/Model</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Category</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Stock</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Price</th>
@@ -372,11 +406,26 @@ new class extends Component {
                                                 <div class="text-base font-bold text-zinc-900 dark:text-white">{{ $part->name }}</div>
                                                 <div class="flex items-center gap-2 mt-1">
                                                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">{{ $part->sku }}</span>
-                                                    @if($part->location)
-                                                        <span class="text-xs text-zinc-400 dark:text-zinc-500">📍 {{ $part->location }}</span>
-                                                    @endif
                                                 </div>
                                             </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-5">
+                                        <div class="space-y-1">
+                                            @if($part->manufacturer)
+                                                <div class="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                                    <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                                    </svg>
+                                                    <span>{{ $part->manufacturer }}</span>
+                                                </div>
+                                            @endif
+                                            @if($part->model)
+                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $part->model }}</div>
+                                            @endif
+                                            @if(!$part->manufacturer && !$part->model)
+                                                <span class="text-xs text-zinc-400 dark:text-zinc-500">N/A</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td class="px-6 py-5">
@@ -432,7 +481,7 @@ new class extends Component {
                                     </td>
                                     <td class="px-6 py-5">
                                         <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                            {{ $part->supplier ?? '—' }}
+                                            {{ $part->supplier ?: 'N/A' }}
                                         </div>
                                     </td>
                                     <td class="px-6 py-5">
@@ -466,7 +515,7 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-6 py-16 text-center">
+                                    <td colspan="7" class="px-6 py-16 text-center">
                                         <div class="flex flex-col items-center justify-center space-y-4">
                                             <div class="p-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl">
                                                 <svg class="w-16 h-16 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -502,228 +551,266 @@ new class extends Component {
             </div>
         </div>
 
-        <!-- Enhanced Create/Edit Modal -->
+        <!-- Redesigned Create/Edit Modal -->
         @if($showModal)
             <div class="fixed inset-0 z-50 overflow-y-auto" style="display: block;">
-                
-                <div class="fixed inset-0 bg-zinc-900/80 backdrop-blur-md transition-opacity" wire:click="closeModal"></div>
+                <div class="fixed inset-0 bg-zinc-950/90 backdrop-blur-sm transition-opacity" wire:click="closeModal"></div>
 
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-4xl w-full border border-zinc-200 dark:border-zinc-800">
+                    <div class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                         
-                        <!-- Modal Header -->
-                        <div class="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-t-3xl">
-                            <div class="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
-                            <div class="relative flex items-center justify-between px-8 py-6 border-b border-white/10">
-                                <div class="flex items-center gap-3">
-                                    <div class="p-2.5 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                                        </svg>
-                                    </div>
-                                    <h3 class="text-2xl font-bold text-white">
-                                        {{ $isEditing ? 'Edit Part' : 'Add New Part' }}
-                                    </h3>
-                                </div>
-                                <button 
-                                    wire:click="closeModal" 
-                                    class="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        <!-- Compact Modal Header -->
+                        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 bg-white/20 rounded-lg">
+                                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                                     </svg>
-                                </button>
+                                </div>
+                                <h3 class="text-lg font-bold text-white">
+                                    {{ $isEditing ? 'Edit Part' : 'Add New Part' }}
+                                </h3>
                             </div>
+                            <button 
+                                wire:click="closeModal" 
+                                class="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all cursor-pointer">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
                         </div>
 
-                        <form wire:submit="save" class="p-8">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Part Name -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                                        </svg>
-                                        Part Name <span class="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        wire:model="name" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
-                                        placeholder="Enter part name"
-                                    />
-                                    @error('name') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- SKU -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
-                                        </svg>
-                                        SKU <span class="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        wire:model="sku" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
-                                        placeholder="e.g., LCD-IP13-001"
-                                    />
-                                    @error('sku') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- Category -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                                        </svg>
-                                        Category
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        wire:model="category" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
-                                        placeholder="e.g., Display, Battery"
-                                    />
-                                    @error('category') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- Supplier -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                                        </svg>
-                                        Supplier
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        wire:model="supplier" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
-                                        placeholder="Enter supplier name"
-                                    />
-                                    @error('supplier') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- In Stock -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                                        </svg>
-                                        In Stock <span class="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        wire:model="in_stock" 
-                                        min="0" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" 
-                                        placeholder="0"
-                                    />
-                                    @error('in_stock') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- Reorder Point -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                        </svg>
-                                        Reorder Point <span class="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        wire:model="reorder_point" 
-                                        min="0" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all" 
-                                        placeholder="0"
-                                    />
-                                    @error('reorder_point') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- Unit Price -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                        Unit Price (₱) <span class="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        wire:model="unit_price" 
-                                        step="0.01" 
-                                        min="0" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" 
-                                        placeholder="0.00"
-                                    />
-                                    @error('unit_price') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- Location -->
-                                <div class="space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        </svg>
-                                        Location
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        wire:model="location" 
-                                        placeholder="e.g., Shelf A3" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                    />
-                                    @error('location') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- Description (Full Width) -->
-                                <div class="md:col-span-2 space-y-2">
-                                    <label class="flex items-center gap-1.5 text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
-                                        </svg>
-                                        Description
-                                    </label>
-                                    <textarea 
-                                        wire:model="description" 
-                                        rows="3" 
-                                        class="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
-                                        placeholder="Additional details about this part..."
-                                    ></textarea>
-                                    @error('description') <p class="mt-1.5 text-sm text-red-600 flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>{{ $message }}</p> @enderror
-                                </div>
-
-                                <!-- Active Toggle (Full Width) -->
-                                <div class="md:col-span-2">
-                                    <label class="flex items-center gap-3 p-4 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-all group">
+                        <form wire:submit="save" class="p-6">
+                            <!-- Basic Information Section -->
+                            <div class="mb-6">
+                                <h4 class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    Basic Information
+                                </h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <!-- Part Name -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Part Name <span class="text-red-500">*</span>
+                                        </label>
                                         <input 
-                                            type="checkbox" 
-                                            wire:model="is_active" 
-                                            class="w-5 h-5 text-blue-600 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-all"
-                                        >
-                                        <div class="flex items-center gap-2">
-                                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                            <span class="text-sm font-bold text-zinc-700 dark:text-zinc-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Active Part</span>
+                                            type="text" 
+                                            wire:model="name" 
+                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                            placeholder="e.g., iPhone 13 LCD Screen"
+                                        />
+                                        @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- SKU -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            SKU <span class="text-red-500">*</span>
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            wire:model="sku" 
+                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                            placeholder="LCD-IP13-001"
+                                        />
+                                        @error('sku') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- Category -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Category
+                                        </label>
+                                        <div class="relative">
+                                            <select
+                                                wire:model="category"
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="">Select Category</option>
+                                                @foreach($categories as $cat)
+                                                    <option value="{{ $cat }}">{{ $cat }}</option>
+                                                @endforeach
+                                            </select>
+                                            <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+                                                <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                </svg>
+                                            </div>
                                         </div>
-                                    </label>
+                                        @error('category') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- Supplier -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Supplier
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            wire:model="supplier" 
+                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                            placeholder="e.g., TechParts Inc."
+                                        />
+                                        @error('supplier') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- Manufacturer -->
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Manufacturer
+                                        </label>
+                                        <div class="relative">
+                                            <select
+                                                wire:model="manufacturer"
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="">Select Manufacturer</option>
+                                                @foreach($this->manufacturers() as $mfr)
+                                                    <option value="{{ $mfr }}">{{ $mfr }}</option>
+                                                @endforeach
+                                            </select>
+                                            <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+                                                <svg class="w-4 h-2 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        @error('manufacturer') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- Model -->
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Device Model
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            wire:model="model" 
+                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                            placeholder="e.g., iPhone 13 Pro, Galaxy S21, Redmi Note 10"
+                                        />
+                                        @error('model') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
                                 </div>
+                            </div>
+
+                            <!-- Inventory & Pricing Section -->
+                            <div class="mb-6">
+                                <h4 class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                    </svg>
+                                    Inventory & Pricing
+                                </h4>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <!-- In Stock -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Current Stock <span class="text-red-500">*</span>
+                                        </label>
+                                        <div class="relative">
+                                            <input 
+                                                type="number" 
+                                                wire:model="in_stock" 
+                                                min="0" 
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                                                placeholder="0"
+                                            />
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">units</span>
+                                        </div>
+                                        @error('in_stock') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- Reorder Point with Tooltip -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 group relative">
+                                            Reorder Point <span class="text-red-500">*</span>
+                                            <span class="ml-1 inline-flex items-center justify-center w-4 h-4 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 cursor-help">?</span>
+                                            <span class="invisible group-hover:visible absolute left-0 top-full mt-1 w-56 p-2 bg-zinc-900 text-white text-xs rounded-lg shadow-lg z-10">
+                                                Alert threshold: System warns when stock falls below this level
+                                            </span>
+                                        </label>
+                                        <div class="relative">
+                                            <input 
+                                                type="number" 
+                                                wire:model="reorder_point" 
+                                                min="0" 
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" 
+                                                placeholder="0"
+                                            />
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">units</span>
+                                        </div>
+                                        @error('reorder_point') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- Unit Price -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Unit Price <span class="text-red-500">*</span>
+                                        </label>
+                                        <div class="relative">
+                                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">₱</span>
+                                            <input 
+                                                type="number" 
+                                                wire:model="unit_price" 
+                                                step="0.01" 
+                                                min="0" 
+                                                class="w-full pl-7 pr-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        @error('unit_price') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Details Section -->
+                            <div class="mb-6">
+                                <h4 class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+                                    </svg>
+                                    Additional Details
+                                </h4>
+                                <textarea 
+                                    wire:model="description" 
+                                    rows="2" 
+                                    class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+                                    placeholder="Optional: Add specifications, compatibility notes, or other details..."
+                                ></textarea>
+                                @error('description') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <!-- Active Status -->
+                            <div class="mb-6">
+                                <label class="flex items-center gap-2.5 p-3 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-all">
+                                    <input 
+                                        type="checkbox" 
+                                        wire:model="is_active" 
+                                        class="w-4 h-4 text-blue-600 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-all"
+                                    >
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">This part is active and available for use</span>
+                                    </div>
+                                </label>
                             </div>
 
                             <!-- Form Actions -->
-                            <div class="flex items-center justify-end gap-3 mt-8 pt-6 border-t-2 border-zinc-200 dark:border-zinc-800">
+                            <div class="flex items-center justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
                                 <button 
                                     type="button" 
                                     wire:click="closeModal" 
-                                    class="px-6 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border-2 border-zinc-300 dark:border-zinc-700 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all cursor-pointer">
+                                    class="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all cursor-pointer">
                                     Cancel
                                 </button>
                                 <button 
                                     type="submit" 
-                                    class="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 cursor-pointer">
+                                    class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-md hover:shadow-lg cursor-pointer">
                                     {{ $isEditing ? '✓ Update Part' : '+ Create Part' }}
                                 </button>
                             </div>

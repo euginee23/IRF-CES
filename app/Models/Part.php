@@ -16,7 +16,8 @@ class Part extends Model
         'reorder_point',
         'unit_price',
         'supplier',
-        'location',
+        'manufacturer',
+        'model',
         'is_active',
     ];
 
