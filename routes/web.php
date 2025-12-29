@@ -25,6 +25,7 @@ Route::middleware(['auth', 'role:administrator'])->prefix('admin')->name('admin.
     Volt::route('dashboard', 'admin.dashboard')->name('dashboard');
     Volt::route('quote-requests', 'admin.quote-requests')->name('quote-requests');
     Volt::route('parts-inventory', 'admin.parts-inventory')->name('parts-inventory');
+    Volt::route('suppliers', 'admin.suppliers')->name('suppliers');
 });
 
 // Technician routes

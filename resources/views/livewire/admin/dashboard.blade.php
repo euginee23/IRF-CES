@@ -14,11 +14,15 @@ state(['stats' => fn() => [
 ?>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold text-zinc-900 dark:text-white">
-            Administrator Dashboard
-        </h1>
-    </div>
+    <!-- Header -->
+        <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Administrator Dashboard</h1>
+                    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Overview of user roles and statistics</p>
+                </div>
+            </div>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="p-6 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">

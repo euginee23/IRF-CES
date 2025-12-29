@@ -27,6 +27,9 @@
                         <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
                             Inventory
                         </a>
+                        <a href="{{ route('admin.suppliers') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/suppliers') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                            Suppliers
+                        </a>
                     @endif
                 </div>
 
