@@ -7,19 +7,52 @@ new class extends Component {
 
     public function mount(): void
     {
-        $this->theme = session('theme', 'system');
+        // This will be synced with localStorage via Alpine.js
+        $this->theme = 'system';
     }
 
     public function setTheme(string $theme): void
     {
         $this->theme = $theme;
-        session(['theme' => $theme]);
         
-        $this->dispatch('theme-updated');
+        // Apply theme immediately via JavaScript
+        $this->js("
+            const theme = '$theme';
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            } else if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                localStorage.setItem('theme', 'system');
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+            // Dispatch event for navbar theme toggle
+            window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme } }));
+        ");
+        
+        // Also dispatch for backwards compatibility
+        $this->dispatch('theme-updated', $theme);
     }
 }; ?>
 
-<section class="w-full">
+<section class="w-full" x-data="{ 
+    init() {
+        // Sync Livewire component with localStorage on mount
+        const storedTheme = localStorage.getItem('theme') || 'system';
+        @this.theme = storedTheme;
+        
+        // Listen for theme changes from navbar toggle
+        window.addEventListener('theme-changed', (event) => {
+            @this.theme = event.detail.theme;
+        });
+    }
+}">
     @include('partials.settings-heading')
 
     <x-settings.layout :heading="__('Appearance')" :subheading="__('Update the appearance settings for your account')">
@@ -95,11 +128,3 @@ new class extends Component {
         </div>
     </x-settings.layout>
 </section>
-
-<script>
-document.addEventListener('livewire:init', () => {
-    Livewire.on('theme-updated', () => {
-        // Optional: Add toast notification or visual feedback
-    });
-});
-</script>
