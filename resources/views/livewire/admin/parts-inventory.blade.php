@@ -19,9 +19,9 @@ new class extends Component {
     public string $sku = '';
     public string $category = '';
     public string $description = '';
-    public int $in_stock = 0;
-    public int $reorder_point = 0;
-    public float $unit_price = 0;
+    public $in_stock = null;
+    public $reorder_point = null;
+    public $unit_price = null;
     public string $supplier = '';
     public string $manufacturer = '';
     public string $model = '';
@@ -127,14 +127,14 @@ new class extends Component {
         $validated = $this->validate([
             'name' => 'required|string|max:255',
             'sku' => 'required|string|max:255|unique:parts,sku,' . ($this->selectedPart->id ?? 'NULL'),
-            'category' => 'nullable|string|max:255',
+            'category' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'in_stock' => 'required|integer|min:0',
-            'reorder_point' => 'required|integer|min:0',
-            'unit_price' => 'required|numeric|min:0',
+            'in_stock' => 'required|integer|min:1',
+            'reorder_point' => 'required|integer|min:1',
+            'unit_price' => 'required|numeric|min:0.01',
             'supplier' => 'nullable|string|max:255',
-            'manufacturer' => 'nullable|string|max:255',
-            'model' => 'nullable|string|max:255',
+            'manufacturer' => 'required|string|max:255',
+            'model' => 'required|string|max:255',
             'is_active' => 'boolean',
         ]);
 
@@ -181,9 +181,9 @@ new class extends Component {
         $this->sku = '';
         $this->category = '';
         $this->description = '';
-        $this->in_stock = 0;
-        $this->reorder_point = 0;
-        $this->unit_price = 0;
+        $this->in_stock = null;
+        $this->reorder_point = null;
+        $this->unit_price = null;
         $this->supplier = '';
         $this->manufacturer = '';
         $this->model = '';
@@ -646,7 +646,7 @@ new class extends Component {
                                     <!-- Category -->
                                     <div>
                                         <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                            Category
+                                            Category <span class="text-red-500">*</span>
                                         </label>
                                         <div class="relative">
                                             <select
@@ -670,7 +670,7 @@ new class extends Component {
                                     <!-- Supplier -->
                                     <div>
                                         <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                            Supplier
+                                            Supplier <span class="text-xs text-zinc-500 dark:text-zinc-400 font-normal">(optional)</span>
                                         </label>
                                         <input 
                                             type="text" 
@@ -684,7 +684,7 @@ new class extends Component {
                                     <!-- Manufacturer -->
                                     <div class="col-span-2">
                                         <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                            Manufacturer
+                                            Manufacturer <span class="text-red-500">*</span>
                                         </label>
                                         <div class="relative">
                                             <select
@@ -708,7 +708,7 @@ new class extends Component {
                                     <!-- Model -->
                                     <div class="col-span-2">
                                         <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                            Device Model
+                                            Device Model <span class="text-red-500">*</span>
                                         </label>
                                         <input 
                                             type="text" 
@@ -797,7 +797,7 @@ new class extends Component {
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
                                     </svg>
-                                    Additional Details
+                                    Additional Details <span class="text-xs text-zinc-400 normal-case font-normal">(optional)</span>
                                 </h4>
                                 <textarea 
                                     wire:model="description" 
