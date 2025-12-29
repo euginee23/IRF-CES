@@ -14,6 +14,9 @@ new class extends Component {
     public bool $showModal = false;
     public bool $isEditing = false;
     public ?Part $selectedPart = null;
+    public bool $showRestockModal = false;
+    public ?int $restockPartId = null;
+    public string $restockNotes = '';
 
     // Form fields
     public string $name = '';
@@ -178,6 +181,62 @@ new class extends Component {
         }
     }
 
+    public function openRestockModal(int $partId): void
+    {
+        $part = Part::findOrFail($partId);
+        
+        // Check if part has a supplier
+        if (!$part->supplier) {
+            $this->dispatch('error', message: 'This part does not have a supplier assigned.');
+            return;
+        }
+
+        // Find the supplier by name
+        $supplier = Supplier::where('name', $part->supplier)->first();
+        
+        if (!$supplier) {
+            $this->dispatch('error', message: 'Supplier not found in the database.');
+            return;
+        }
+
+        if (!$supplier->email) {
+            $this->dispatch('error', message: 'Supplier does not have an email address.');
+            return;
+        }
+
+        $this->restockPartId = $partId;
+        $this->restockNotes = '';
+        $this->showRestockModal = true;
+    }
+
+    public function confirmRestock(): void
+    {
+        if (!$this->restockPartId) {
+            return;
+        }
+
+        $part = Part::findOrFail($this->restockPartId);
+        $supplier = Supplier::where('name', $part->supplier)->first();
+        
+        // Calculate requested quantity (double the reorder point minus current stock)
+        $requestedQuantity = max(1, ($part->reorder_point * 2) - $part->in_stock);
+
+        try {
+            \Mail::to($supplier->email)->send(new \App\Mail\RestockRequestMail($part, $supplier, $requestedQuantity, $this->restockNotes));
+            $this->dispatch('success', message: 'Restock request email sent to ' . $supplier->name . ' successfully!');
+            $this->closeRestockModal();
+        } catch (\Exception $e) {
+            $this->dispatch('error', message: 'Failed to send email: ' . $e->getMessage());
+        }
+    }
+
+    public function closeRestockModal(): void
+    {
+        $this->showRestockModal = false;
+        $this->restockPartId = null;
+        $this->restockNotes = '';
+    }
+
     public function closeModal(): void
     {
         $this->showModal = false;
@@ -220,7 +279,7 @@ new class extends Component {
 <div>
     <div class="space-y-6">  
 
-            <!-- Header -->
+        <!-- Header -->
             <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 p-6">
                 <div>
                     <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Parts Inventory</h1>
@@ -381,7 +440,7 @@ new class extends Component {
                         <button 
                             type="button"
                             wire:click="openCreateModal"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                             </svg>
@@ -495,32 +554,46 @@ new class extends Component {
                                         </div>
                                     </td>
                                     <td class="px-6 py-5">
-                                        <div class="flex items-center justify-end gap-1.5">
-                                            <button 
-                                                type="button"
-                                                wire:click="openEditModal({{ $part->id }})"
-                                                class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                                </svg>
-                                                Edit
-                                            </button>
-                                            <button 
-                                                type="button"
-                                                @click="$dispatch('open-delete-dialog', {
-                                                    title: 'Delete Part',
-                                                    message: 'Are you sure you want to delete {{ addslashes($part->name) }}? This action cannot be undone.',
-                                                    confirmText: 'Delete',
-                                                    cancelText: 'Cancel',
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-end gap-1.5">
+                                                <button 
+                                                    type="button"
+                                                    wire:click="openEditModal({{ $part->id }})"
+                                                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                    </svg>
+                                                    Edit
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    @click="$dispatch('open-delete-dialog', {
+                                                        title: 'Delete Part',
+                                                        message: 'Are you sure you want to delete {{ addslashes($part->name) }}? This action cannot be undone.',
+                                                        confirmText: 'Delete',
+                                                        cancelText: 'Cancel',
                                                     callback: () => $wire.delete({{ $part->id }})
                                                 })"
-                                                class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow">
+                                                class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                                 </svg>
                                                 Delete
                                             </button>
                                         </div>
+                                        @if($part->supplier && $part->isLowStock())
+                                            <button 
+                                                type="button"
+                                                wire:click="openRestockModal({{ $part->id }})"
+                                                class="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer"
+                                                title="Request restock from supplier">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                </svg>
+                                                Request Restock
+                                            </button>
+                                        @endif
+                                    </div>
                                     </td>
                                 </tr>
                             @empty
@@ -559,7 +632,6 @@ new class extends Component {
                     </div>
                 @endif
             </div>
-        </div>
 
         <!-- Redesigned Create/Edit Modal with Animations -->
         <div 
@@ -860,6 +932,121 @@ new class extends Component {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Restock Confirmation Modal -->
+        <div 
+            x-data="{ show: @entangle('showRestockModal') }"
+            x-show="show"
+            class="fixed inset-0 z-50 overflow-y-auto"
+            style="display: none;"
+        >
+            <!-- Backdrop with blur -->
+            <div 
+                x-show="show"
+                x-transition:enter="ease-out duration-300"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="ease-in duration-200"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                wire:click="closeRestockModal"
+                class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm transition-opacity"
+            ></div>
+
+            <!-- Modal Dialog -->
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div 
+                    x-show="show"
+                    x-transition:enter="ease-out duration-300"
+                    x-transition:enter-start="opacity-0 scale-95"
+                    x-transition:enter-end="opacity-100 scale-100"
+                    x-transition:leave="ease-in duration-200"
+                    x-transition:leave-start="opacity-100 scale-100"
+                    x-transition:leave-end="opacity-0 scale-95"
+                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-lg w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
+                >
+                    <!-- Modal Header -->
+                    <div class="bg-gradient-to-r from-orange-600 to-amber-600 px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-white/20 rounded-lg">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-bold text-white">Confirm Restock Request</h3>
+                        </div>
+                        <button 
+                            wire:click="closeRestockModal" 
+                            class="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="p-6">
+                        <div class="flex items-start gap-4 mb-6">
+                            <div class="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
+                                <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-base font-semibold text-zinc-900 dark:text-white mb-2">
+                                    Send restock request email to supplier?
+                                </p>
+                                <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                                    This will notify the supplier about the low stock status and request a restock.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Additional Notes Input -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                Additional Notes <span class="text-xs text-zinc-500 dark:text-zinc-400 font-normal">(optional)</span>
+                            </label>
+                            <textarea 
+                                wire:model="restockNotes"
+                                rows="4"
+                                class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-orange-500 dark:focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all resize-none"
+                                placeholder="Add any specific requirements, delivery preferences, or special instructions for the supplier..."
+                            ></textarea>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                These notes will be included in the email to the supplier.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-3">
+                        <button 
+                            type="button" 
+                            wire:click="closeRestockModal" 
+                            class="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all cursor-pointer">
+                            Cancel
+                        </button>
+                        <button 
+                            type="button"
+                            wire:click="confirmRestock"
+                            wire:loading.attr="disabled"
+                            wire:target="confirmRestock"
+                            class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-lg transition-all shadow-md hover:shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
+                            <svg wire:loading.remove wire:target="confirmRestock" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            <svg wire:loading wire:target="confirmRestock" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span wire:loading.remove wire:target="confirmRestock">Send Request</span>
+                            <span wire:loading wire:target="confirmRestock">Sending...</span>
+                        </button>
                     </div>
                 </div>
             </div>
