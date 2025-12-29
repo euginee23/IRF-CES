@@ -155,6 +155,7 @@ test('administrator can edit existing part', function () {
         'reorder_point' => 5,
         'unit_price' => 1000.00,
         'manufacturer' => 'Samsung',
+        'model' => 'Galaxy S21',
         'is_active' => true,
     ]);
 
@@ -182,6 +183,9 @@ test('sku uniqueness is ignored when updating same part', function () {
     $part = Part::create([
         'name' => 'Test Part',
         'sku' => 'TEST-SKU-001',
+        'category' => 'Display & Input Components',
+        'manufacturer' => 'Apple',
+        'model' => 'iPhone 13',
         'in_stock' => 10,
         'reorder_point' => 5,
         'unit_price' => 1000.00,
