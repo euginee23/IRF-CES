@@ -925,10 +925,22 @@ new class extends Component {
                                     class="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all cursor-pointer">
                                     Cancel
                                 </button>
-                                <button 
-                                    type="submit" 
-                                    class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-md hover:shadow-lg cursor-pointer">
-                                    {{ $isEditing ? '✓ Update Part' : '+ Create Part' }}
+                                <button
+                                    type="submit"
+                                    wire:loading.attr="disabled"
+                                    wire:target="save"
+                                    class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-md hover:shadow-lg cursor-pointer inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span wire:loading.remove wire:target="save">
+                                        {{ $isEditing ? '✓ Update Part' : '+ Create Part' }}
+                                    </span>
+
+                                    <span wire:loading wire:target="save" class="inline-flex items-center gap-2">
+                                        <svg class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                        </svg>
+                                        
+                                    </span>
                                 </button>
                             </div>
                         </form>

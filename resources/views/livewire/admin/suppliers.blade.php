@@ -509,7 +509,7 @@ new class extends Component {
                         <!-- Supplier Name -->
                         <div>
                             <label for="name" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                    Email <span class="text-red-500">*</span>
+                                Supplier Name <span class="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
