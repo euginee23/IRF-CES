@@ -13,6 +13,10 @@
             </div>
         </main>
 
+        {{-- Global Notification Components --}}
+        <x-notification-toast />
+        <x-delete-confirmation />
+
         @stack('scripts')
     </body>
 </html>
