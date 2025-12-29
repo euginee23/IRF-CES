@@ -551,13 +551,38 @@ new class extends Component {
             </div>
         </div>
 
-        <!-- Redesigned Create/Edit Modal -->
-        @if($showModal)
-            <div class="fixed inset-0 z-50 overflow-y-auto" style="display: block;">
-                <div class="fixed inset-0 bg-zinc-950/90 backdrop-blur-sm transition-opacity" wire:click="closeModal"></div>
+        <!-- Redesigned Create/Edit Modal with Animations -->
+        <div 
+            x-data="{ show: @entangle('showModal') }"
+            x-show="show"
+            class="fixed inset-0 z-50 overflow-y-auto"
+            style="display: none;"
+        >
+            <!-- Backdrop with blur -->
+            <div 
+                x-show="show"
+                x-transition:enter="ease-out duration-300"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="ease-in duration-200"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                wire:click="closeModal"
+                class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm transition-opacity"
+            ></div>
 
-                <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <!-- Modal Dialog -->
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div 
+                    x-show="show"
+                    x-transition:enter="ease-out duration-300"
+                    x-transition:enter-start="opacity-0 scale-95"
+                    x-transition:enter-end="opacity-100 scale-100"
+                    x-transition:leave="ease-in duration-200"
+                    x-transition:leave-start="opacity-100 scale-100"
+                    x-transition:leave-end="opacity-0 scale-95"
+                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
+                >
                         
                         <!-- Compact Modal Header -->
                         <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
@@ -818,6 +843,6 @@ new class extends Component {
                     </div>
                 </div>
             </div>
-        @endif
+        </div>
     </div>
 </div>
