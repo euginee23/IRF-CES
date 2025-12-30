@@ -2,6 +2,7 @@
 
 use App\Models\Part;
 use App\Models\Supplier;
+use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -17,6 +18,11 @@ new class extends Component {
     public bool $showRestockModal = false;
     public ?int $restockPartId = null;
     public string $restockNotes = '';
+
+    protected $queryString = ['search', 'categoryFilter'];
+
+    // Pagination per-page selection (default preserved at 15)
+    public $perPage = 15;
 
     // Form fields
     public string $name = '';
@@ -90,7 +96,7 @@ new class extends Component {
             $query->whereRaw('in_stock <= reorder_point');
         }
 
-        $parts = $query->latest()->paginate(15);
+        $parts = $query->latest()->paginate($this->perPage);
         $categories = collect([
             'Display & Input Components',
             'Power & Charging Components',
@@ -103,11 +109,21 @@ new class extends Component {
         ]);
         $lowStockCount = Part::whereRaw('in_stock <= reorder_point')->count();
 
+        $totalValue = (float) DB::table('parts')
+            ->selectRaw('COALESCE(SUM(in_stock * unit_cost_price), 0) as total')
+            ->value('total');
+
+        $totalSaleMargin = (float) DB::table('parts')
+            ->selectRaw('COALESCE(SUM((unit_sale_price - unit_cost_price) * in_stock), 0) as total')
+            ->value('total');
+
         return [
             'parts' => $parts,
             'categories' => $categories,
             'lowStockCount' => $lowStockCount,
             'suppliers' => $this->suppliers(),
+            'totalValue' => $totalValue,
+            'totalSaleMargin' => $totalSaleMargin,
         ];
     }
 
@@ -278,6 +294,10 @@ new class extends Component {
     {
         $this->resetPage();
     }
+        public function updatedPerPage(): void
+        {
+            $this->resetPage();
+        }
 }; ?>
 
 <div>
@@ -349,7 +369,7 @@ new class extends Component {
                         <div class="space-y-1">
                             <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Total Value</p>
                             <p class="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
-                                ₱{{ number_format($parts->sum(fn($p) => $p->in_stock * $p->unit_cost_price), 2) }}
+                                ₱{{ number_format($totalValue, 2) }}
                             </p>
                             <p class="text-xs text-zinc-400 dark:text-zinc-500">current inventory worth (cost)</p>
                         </div>
@@ -358,19 +378,19 @@ new class extends Component {
                 
                 <!-- Total Sale Margin Card -->
                 <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
-                    <div class="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div class="relative p-6">
                         <div class="flex items-start justify-between mb-4">
-                            <div class="p-3 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl shadow-md">
+                            <div class="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-md">
                                 <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </div>
                         </div>
                         <div class="space-y-1">
                             <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Total Sale Margin</p>
-                            <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                                ₱{{ number_format($parts->sum(fn($p) => ($p->unit_sale_price - $p->unit_cost_price) * $p->in_stock), 2) }}
+                            <p class="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
+                                ₱{{ number_format($totalSaleMargin, 2) }}
                             </p>
                             <p class="text-xs text-zinc-400 dark:text-zinc-500">potential profit (sale - cost)</p>
                         </div>
@@ -661,8 +681,30 @@ new class extends Component {
                 </div>
 
                 @if($parts->hasPages())
-                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-800">
-                        {{ $parts->links() }}
+                    <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="text-sm text-zinc-600 dark:text-zinc-400">Showing page <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $parts->currentPage() }}</span> of <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $parts->lastPage() }}</span></div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-zinc-600 dark:text-zinc-400">Show</label>
+                                <select wire:model.live="perPage" class="text-sm px-3 py-2 border rounded-md bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button type="button" wire:click="gotoPage(1)" @if($parts->onFirstPage()) disabled @endif class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed">&laquo;</button>
+
+                            <button type="button" wire:click="gotoPage({{ max(1, $parts->currentPage()-1) }})" @if($parts->onFirstPage()) disabled @endif class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed">&lsaquo;</button>
+
+                            <span class="px-4 py-1 border rounded-md text-sm font-medium bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100">{{ $parts->currentPage() }}</span>
+
+                            <button type="button" wire:click="gotoPage({{ min($parts->lastPage(), $parts->currentPage()+1) }})" @if($parts->currentPage() == $parts->lastPage()) disabled @endif class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed">&rsaquo;</button>
+
+                            <button type="button" wire:click="gotoPage({{ $parts->lastPage() }})" @if($parts->currentPage() == $parts->lastPage()) disabled @endif class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed">&raquo;</button>
+                        </div>
                     </div>
                 @endif
             </div>

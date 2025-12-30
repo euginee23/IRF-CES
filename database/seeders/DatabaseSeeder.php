@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Database\Seeders\PartsTableSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -24,6 +25,8 @@ class DatabaseSeeder extends Seeder
                 'role' => Role::ADMINISTRATOR,
             ]
         );
+
+       
 
         User::firstOrCreate(
             ['email' => 'technician@example.com'],
@@ -45,15 +48,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // Keep the original test user as counter staff (default role)
-        User::firstOrCreate(
-            ['email' => 'test@example.com'],
-            [
-                'name' => 'Test User',
-                'password' => 'password',
-                'email_verified_at' => now(),
-                'role' => Role::COUNTER_STAFF,
-            ]
-        );
+        // Seed parts inventory
+        $this->call(PartsTableSeeder::class);
     }
 }

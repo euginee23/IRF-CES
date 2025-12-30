@@ -212,9 +212,10 @@ new class extends Component {
     }
 }; ?>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-10 gap-6">
     <!-- LEFT: Quote/Receipt -->
-    <div class="lg:sticky lg:top-20 lg:z-30 h-fit">
+    <div class="lg:col-span-3">
+        <div class="lg:sticky lg:top-20 lg:z-30">
         <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3">
                 <h2 class="text-lg font-bold text-white flex items-center gap-2">
@@ -236,7 +237,7 @@ new class extends Component {
                 <!-- Device Info -->
                 <div class="pb-3 border-b border-zinc-200 dark:border-zinc-700">
                     <p class="text-xs uppercase text-zinc-500 dark:text-zinc-400 font-semibold mb-1">Device</p>
-                    <p class="text-sm font-bold text-zinc-900 dark:text-white">{{ $device_brand ?: '—' }} {{ $device_model ?: '' }}</p>
+                    <p class="text-sm font-bold text-zinc-900 dark:text-white cursor-pointer">{{ $device_brand ?: '—' }} {{ $device_model ?: '' }}</p>
                     @if($serial_number)
                         <p class="text-xs text-zinc-600 dark:text-zinc-400">S/N: {{ $serial_number }}</p>
                     @endif
@@ -290,10 +291,11 @@ new class extends Component {
                 </div>
             </div>
         </div>
+        </div>
     </div>
 
     <!-- RIGHT: Form -->
-    <div class="lg:col-span-2">
+    <div class="lg:col-span-7 flex-1 min-w-0">
         <form wire:submit="save" class="space-y-4">
             <!-- Job Order Preview (read-only) -->
             <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden px-4 py-3">
@@ -310,7 +312,7 @@ new class extends Component {
                         Customer Information
                     </h3>
                 </div>
-                <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="p-4 grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Name <span class="text-red-500">*</span></label>
                         <input wire:model.blur="customer_name" type="text" placeholder="Juan Dela Cruz" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500" required>
@@ -342,10 +344,10 @@ new class extends Component {
                         Device Information
                     </h3>
                 </div>
-                <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="p-4 grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Brand <span class="text-red-500">*</span></label>
-                        <select wire:model.live="device_brand" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500" required>
+                        <select wire:model.live="device_brand" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 cursor-pointer" required>
                             <option value="">Select</option>
                             @foreach($manufacturers as $manufacturer)
                                 <option value="{{ $manufacturer }}">{{ $manufacturer }}</option>
@@ -378,7 +380,7 @@ new class extends Component {
                 <div class="p-4 space-y-3">
                     <div>
                         <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Issue Description <span class="text-red-500">*</span></label>
-                        <textarea wire:model="issue_description" rows="2" placeholder="Describe the issue in detail (symptoms, when it started, any error messages)" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500" required></textarea>
+                        <textarea wire:model="issue_description" rows="5" placeholder="Describe the issue in detail (symptoms, when it started, any error messages)" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500" required></textarea>
                         @error('issue_description') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                     </div>
 
@@ -390,7 +392,7 @@ new class extends Component {
                         <div class="space-y-2">
                             @foreach($services as $index => $service)
                                 <div class="flex gap-2">
-                                    <select wire:model.live="services.{{ $index }}.type" class="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900">
+                                    <select wire:model.live="services.{{ $index }}.type" class="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 cursor-pointer">
                                         <option value="">Select service</option>
                                         @foreach($servicesGrouped as $category => $serviceList)
                                             <optgroup label="{{ $category }}">
@@ -418,7 +420,7 @@ new class extends Component {
             <!-- Parts -->
             <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                 <div class="bg-zinc-50 dark:bg-zinc-900/50 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-700">
-                    <h3 class="text-sm font-bold text-zinc-900 dark:text-white">Parts Required</h3>
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-white">Parts used from Inventory</h3>
                 </div>
                 <div class="p-4 space-y-3">
                     @if(count($selectedParts) > 0)
@@ -507,7 +509,7 @@ new class extends Component {
             <!-- Actions -->
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ route('counter.job-orders') }}" wire:navigate class="px-4 py-2 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition">Cancel</a>
-                <button type="submit" class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition">Create Job Order</button>
+                <button type="submit" class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition cursor-pointer">Create Job Order</button>
             </div>
         </form>
     </div>
