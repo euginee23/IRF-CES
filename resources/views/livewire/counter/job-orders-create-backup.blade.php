@@ -226,8 +226,22 @@ new class extends Component {
         $validated['issues'] = $validated['services'];
         unset($validated['services']);
 
-        // Store parts as JSON
+        // Store parts as JSON and enrich with current part details
         $validated['parts_needed'] = $validated['selectedParts'] ?? [];
+        if (is_array($validated['parts_needed']) && count($validated['parts_needed']) > 0) {
+            foreach ($validated['parts_needed'] as $i => $p) {
+                $partModel = \App\Models\Part::find($p['part_id'] ?? null);
+                if ($partModel) {
+                    $validated['parts_needed'][$i]['part_name'] = $partModel->name;
+                    $validated['parts_needed'][$i]['unit_sale_price'] = (float) $partModel->unit_sale_price;
+                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
+                } else {
+                    $validated['parts_needed'][$i]['part_name'] = $p['part_name'] ?? 'N/A';
+                    $validated['parts_needed'][$i]['unit_sale_price'] = isset($p['unit_sale_price']) ? (float) $p['unit_sale_price'] : 0.0;
+                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
+                }
+            }
+        }
         unset($validated['selectedParts']);
 
         $jobOrder = JobOrder::create(array_merge($validated, [

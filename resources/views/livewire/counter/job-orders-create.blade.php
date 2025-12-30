@@ -198,6 +198,23 @@ new class extends Component {
         unset($validated['services']);
 
         $validated['parts_needed'] = $validated['selectedParts'] ?? [];
+        // Enrich parts data with current part name and unit price so the job record
+        // remains meaningful even if the Part model is later modified or deleted.
+        if (is_array($validated['parts_needed']) && count($validated['parts_needed']) > 0) {
+            foreach ($validated['parts_needed'] as $i => $p) {
+                $partModel = \App\Models\Part::find($p['part_id'] ?? null);
+                if ($partModel) {
+                    $validated['parts_needed'][$i]['part_name'] = $partModel->name;
+                    $validated['parts_needed'][$i]['unit_sale_price'] = (float) $partModel->unit_sale_price;
+                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
+                } else {
+                    // Keep stored values safe
+                    $validated['parts_needed'][$i]['part_name'] = $p['part_name'] ?? 'N/A';
+                    $validated['parts_needed'][$i]['unit_sale_price'] = isset($p['unit_sale_price']) ? (float) $p['unit_sale_price'] : 0.0;
+                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
+                }
+            }
+        }
         unset($validated['selectedParts']);
 
         $validated['estimated_cost'] = $this->estimated_cost;

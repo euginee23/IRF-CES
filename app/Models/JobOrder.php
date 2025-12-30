@@ -48,12 +48,28 @@ class JobOrder extends Model
 
         static::creating(function ($jobOrder) {
             if (empty($jobOrder->job_order_number)) {
-                $jobOrder->job_order_number = 'JO-' . date('Ymd') . '-' . str_pad(
-                    self::whereDate('created_at', today())->count() + 1,
-                    4,
-                    '0',
-                    STR_PAD_LEFT
-                );
+                $base = 'JO-' . date('Ymd') . '-';
+
+                // Start from count of today's records + 1, but verify uniqueness
+                $seq = self::whereDate('created_at', today())->count() + 1;
+
+                // Try increasing the sequence until we find an unused job order number
+                do {
+                    $candidate = $base . str_pad($seq, 4, '0', STR_PAD_LEFT);
+                    $exists = self::where('job_order_number', $candidate)->exists();
+                    if ($exists) {
+                        $seq++;
+                        // small sleep to reduce tight-loop race in extreme concurrency
+                        usleep(1000);
+                    }
+                } while ($exists && $seq < 9999);
+
+                // Fallback: if somehow we exhausted attempts, append a unique suffix
+                if ($seq >= 9999) {
+                    $candidate = $base . uniqid();
+                }
+
+                $jobOrder->job_order_number = $candidate;
             }
         });
     }
