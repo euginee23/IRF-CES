@@ -25,7 +25,8 @@ new class extends Component {
     public string $description = '';
     public $in_stock = null;
     public $reorder_point = null;
-    public $unit_price = null;
+    public $unit_cost_price = null;
+    public $unit_sale_price = null;
     public string $supplier = '';
     public string $manufacturer = '';
     public string $model = '';
@@ -126,7 +127,8 @@ new class extends Component {
         $this->description = $this->selectedPart->description ?? '';
         $this->in_stock = $this->selectedPart->in_stock;
         $this->reorder_point = $this->selectedPart->reorder_point;
-        $this->unit_price = $this->selectedPart->unit_price;
+        $this->unit_cost_price = $this->selectedPart->unit_cost_price;
+        $this->unit_sale_price = $this->selectedPart->unit_sale_price;
         $this->supplier = $this->selectedPart->supplier ?? '';
         $this->manufacturer = $this->selectedPart->manufacturer ?? '';
         $this->model = $this->selectedPart->model ?? '';
@@ -144,7 +146,8 @@ new class extends Component {
             'description' => 'nullable|string',
             'in_stock' => 'required|integer|min:1',
             'reorder_point' => 'required|integer|min:1',
-            'unit_price' => 'required|numeric|min:0.01',
+            'unit_cost_price' => 'required|numeric|min:0.01|lt:unit_sale_price',
+            'unit_sale_price' => 'required|numeric|min:0.01|gt:unit_cost_price',
             'supplier' => 'nullable|string|max:255',
             'manufacturer' => 'required|string|max:255',
             'model' => 'required|string|max:255',
@@ -252,7 +255,8 @@ new class extends Component {
         $this->description = '';
         $this->in_stock = null;
         $this->reorder_point = null;
-        $this->unit_price = null;
+        $this->unit_cost_price = null;
+        $this->unit_sale_price = null;
         $this->supplier = '';
         $this->manufacturer = '';
         $this->model = '';
@@ -288,7 +292,7 @@ new class extends Component {
             </div>
 
             <!-- Stats Cards with Modern Design -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <!-- Total Parts Card -->
                 <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                     <div class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -345,9 +349,30 @@ new class extends Component {
                         <div class="space-y-1">
                             <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Total Value</p>
                             <p class="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
-                                ₱{{ number_format($parts->sum(fn($p) => $p->in_stock * $p->unit_price), 2) }}
+                                ₱{{ number_format($parts->sum(fn($p) => $p->in_stock * $p->unit_cost_price), 2) }}
                             </p>
-                            <p class="text-xs text-zinc-400 dark:text-zinc-500">current inventory worth</p>
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500">current inventory worth (cost)</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Total Sale Margin Card -->
+                <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="p-3 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl shadow-md">
+                                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Total Sale Margin</p>
+                            <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                                ₱{{ number_format($parts->sum(fn($p) => ($p->unit_sale_price - $p->unit_cost_price) * $p->in_stock), 2) }}
+                            </p>
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500">potential profit (sale - cost)</p>
                         </div>
                     </div>
                 </div>
@@ -542,9 +567,18 @@ new class extends Component {
                                     </td>
                                     <td class="px-6 py-5">
                                         <div class="space-y-1">
-                                            <div class="text-base font-bold text-zinc-900 dark:text-white">₱{{ number_format($part->unit_price, 2) }}</div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Cost:</span>
+                                                <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₱{{ number_format($part->unit_cost_price, 2) }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sale:</span>
+                                                <span class="text-sm font-bold text-emerald-600 dark:text-emerald-400">₱{{ number_format($part->unit_sale_price, 2) }}</span>
+                                            </div>
                                             <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                                                Total: <span class="font-semibold text-emerald-600 dark:text-emerald-400">₱{{ number_format($part->in_stock * $part->unit_price, 2) }}</span>
+                                                Margin: <span class="font-semibold {{ ($part->unit_sale_price - $part->unit_cost_price) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                                                    ₱{{ number_format($part->unit_sale_price - $part->unit_cost_price, 2) }}
+                                                </span>
                                             </div>
                                         </div>
                                     </td>
@@ -821,7 +855,7 @@ new class extends Component {
                                     </svg>
                                     Inventory & Pricing
                                 </h4>
-                                <div class="grid grid-cols-3 gap-4">
+                                <div class="grid grid-cols-2 gap-4">
                                     <!-- In Stock -->
                                     <div>
                                         <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
@@ -862,23 +896,44 @@ new class extends Component {
                                         @error('reorder_point') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                     </div>
 
-                                    <!-- Unit Price -->
+                                    <!-- Unit Cost Price -->
                                     <div>
                                         <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                            Unit Price <span class="text-red-500">*</span>
+                                            Unit Cost Price <span class="text-red-500">*</span>
+                                            <span class="ml-1 text-xs text-zinc-500 dark:text-zinc-400 font-normal">(Purchase price)</span>
                                         </label>
                                         <div class="relative">
                                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">₱</span>
                                             <input 
                                                 type="number" 
-                                                wire:model="unit_price" 
+                                                wire:model="unit_cost_price" 
+                                                step="0.01" 
+                                                min="0" 
+                                                class="w-full pl-7 pr-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        @error('unit_cost_price') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    <!-- Unit Sale Price -->
+                                    <div>
+                                        <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Unit Sale Price <span class="text-red-500">*</span>
+                                            <span class="ml-1 text-xs text-zinc-500 dark:text-zinc-400 font-normal">(Selling price)</span>
+                                        </label>
+                                        <div class="relative">
+                                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">₱</span>
+                                            <input 
+                                                type="number" 
+                                                wire:model="unit_sale_price" 
                                                 step="0.01" 
                                                 min="0" 
                                                 class="w-full pl-7 pr-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
                                                 placeholder="0.00"
                                             />
                                         </div>
-                                        @error('unit_price') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        @error('unit_sale_price') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                     </div>
                                 </div>
                             </div>

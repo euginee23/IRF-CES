@@ -14,7 +14,8 @@ class Part extends Model
         'description',
         'in_stock',
         'reorder_point',
-        'unit_price',
+        'unit_cost_price',
+        'unit_sale_price',
         'supplier',
         'manufacturer',
         'model',
@@ -24,7 +25,8 @@ class Part extends Model
     protected $casts = [
         'in_stock' => 'integer',
         'reorder_point' => 'integer',
-        'unit_price' => 'decimal:2',
+        'unit_cost_price' => 'decimal:2',
+        'unit_sale_price' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

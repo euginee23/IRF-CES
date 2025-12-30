@@ -39,7 +39,8 @@ test('parts inventory page displays parts list', function () {
         'category' => 'Display & Input Components',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 2500.00,
+        'unit_cost_price' => 2500.00,
+        'unit_sale_price' => 3250.00,
         'manufacturer' => 'Apple',
         'model' => 'iPhone 13',
         'is_active' => true,
@@ -63,7 +64,8 @@ test('administrator can create a new part', function () {
         ->set('description', 'Original Samsung battery')
         ->set('in_stock', 15)
         ->set('reorder_point', 5)
-        ->set('unit_price', 800.00)
+        ->set('unit_cost_price', 800.00)
+        ->set('unit_sale_price', 1040.00)
         ->set('supplier', 'TechParts Inc.')
         ->set('manufacturer', 'Samsung')
         ->set('model', 'Galaxy S21')
@@ -88,7 +90,8 @@ test('technician can create a new part', function () {
         ->set('category', 'Display & Input Components')
         ->set('in_stock', 8)
         ->set('reorder_point', 3)
-        ->set('unit_price', 1200.00)
+        ->set('unit_cost_price', 1200.00)
+        ->set('unit_sale_price', 1560.00)
         ->set('manufacturer', 'Xiaomi')
         ->set('model', 'Redmi Note 10')
         ->set('is_active', true)
@@ -108,7 +111,8 @@ test('part creation requires name and sku', function () {
         ->set('sku', '')
         ->set('in_stock', 10)
         ->set('reorder_point', 5)
-        ->set('unit_price', 1000.00)
+        ->set('unit_cost_price', 1000.00)
+        ->set('unit_sale_price', 1300.00)
         ->call('save')
         ->assertHasErrors(['name', 'sku']);
 });
@@ -119,7 +123,8 @@ test('sku must be unique when creating part', function () {
         'sku' => 'UNIQUE-SKU-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 500.00,
+        'unit_cost_price' => 500.00,
+        'unit_sale_price' => 650.00,
         'is_active' => true,
     ]);
 
@@ -129,7 +134,8 @@ test('sku must be unique when creating part', function () {
         ->set('sku', 'UNIQUE-SKU-001')
         ->set('in_stock', 5)
         ->set('reorder_point', 2)
-        ->set('unit_price', 600.00)
+        ->set('unit_cost_price', 600.00)
+        ->set('unit_sale_price', 780.00)
         ->call('save')
         ->assertHasErrors(['sku']);
 });
@@ -141,9 +147,10 @@ test('stock and price fields require valid numeric values', function () {
         ->set('sku', 'TEST-001')
         ->set('in_stock', -5)
         ->set('reorder_point', -2)
-        ->set('unit_price', -100.00)
+        ->set('unit_cost_price', -100.00)
+        ->set('unit_sale_price', -130.00)
         ->call('save')
-        ->assertHasErrors(['in_stock', 'reorder_point', 'unit_price']);
+        ->assertHasErrors(['in_stock', 'reorder_point', 'unit_cost_price', 'unit_sale_price']);
 });
 
 test('administrator can edit existing part', function () {
@@ -153,7 +160,8 @@ test('administrator can edit existing part', function () {
         'category' => 'Power & Charging Components',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'manufacturer' => 'Samsung',
         'model' => 'Galaxy S21',
         'is_active' => true,
@@ -166,7 +174,8 @@ test('administrator can edit existing part', function () {
         ->assertSet('sku', 'ORIGINAL-001')
         ->set('name', 'Updated Name')
         ->set('in_stock', 15)
-        ->set('unit_price', 1200.00)
+        ->set('unit_cost_price', 1200.00)
+        ->set('unit_sale_price', 1560.00)
         ->call('save')
         ->assertDispatched('success');
 
@@ -175,7 +184,8 @@ test('administrator can edit existing part', function () {
         'name' => 'Updated Name',
         'sku' => 'ORIGINAL-001',
         'in_stock' => 15,
-        'unit_price' => 1200.00,
+        'unit_cost_price' => 1200.00,
+        'unit_sale_price' => 1560.00,
     ]);
 });
 
@@ -188,7 +198,8 @@ test('sku uniqueness is ignored when updating same part', function () {
         'model' => 'iPhone 13',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -212,7 +223,8 @@ test('administrator can delete part', function () {
         'sku' => 'DELETE-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 500.00,
+        'unit_cost_price' => 500.00,
+        'unit_sale_price' => 650.00,
         'is_active' => true,
     ]);
 
@@ -232,7 +244,8 @@ test('parts inventory can be searched by name', function () {
         'sku' => 'BAT-IP13-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1500.00,
+        'unit_cost_price' => 1500.00,
+        'unit_sale_price' => 1950.00,
         'is_active' => true,
     ]);
 
@@ -241,7 +254,8 @@ test('parts inventory can be searched by name', function () {
         'sku' => 'BAT-S21-001',
         'in_stock' => 8,
         'reorder_point' => 3,
-        'unit_price' => 1200.00,
+        'unit_cost_price' => 1200.00,
+        'unit_sale_price' => 1560.00,
         'is_active' => true,
     ]);
 
@@ -258,7 +272,8 @@ test('parts inventory can be searched by sku', function () {
         'sku' => 'SKU-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -267,7 +282,8 @@ test('parts inventory can be searched by sku', function () {
         'sku' => 'SKU-002',
         'in_stock' => 8,
         'reorder_point' => 3,
-        'unit_price' => 800.00,
+        'unit_cost_price' => 800.00,
+        'unit_sale_price' => 1040.00,
         'is_active' => true,
     ]);
 
@@ -285,7 +301,8 @@ test('parts inventory can be searched by supplier', function () {
         'supplier' => 'TechParts Inc.',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -295,7 +312,8 @@ test('parts inventory can be searched by supplier', function () {
         'supplier' => 'Other Supplier Co.',
         'in_stock' => 8,
         'reorder_point' => 3,
-        'unit_price' => 800.00,
+        'unit_cost_price' => 800.00,
+        'unit_sale_price' => 1040.00,
         'is_active' => true,
     ]);
 
@@ -313,7 +331,8 @@ test('parts inventory can be filtered by category', function () {
         'category' => 'Display & Input Components',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 2000.00,
+        'unit_cost_price' => 2000.00,
+        'unit_sale_price' => 2600.00,
         'is_active' => true,
     ]);
 
@@ -323,7 +342,8 @@ test('parts inventory can be filtered by category', function () {
         'category' => 'Power & Charging Components',
         'in_stock' => 8,
         'reorder_point' => 3,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -340,7 +360,8 @@ test('parts inventory can show only low stock items', function () {
         'sku' => 'LOW-001',
         'in_stock' => 3,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -349,7 +370,8 @@ test('parts inventory can show only low stock items', function () {
         'sku' => 'NORMAL-001',
         'in_stock' => 20,
         'reorder_point' => 5,
-        'unit_price' => 800.00,
+        'unit_cost_price' => 800.00,
+        'unit_sale_price' => 1040.00,
         'is_active' => true,
     ]);
 
@@ -366,7 +388,8 @@ test('part model correctly identifies low stock', function () {
         'sku' => 'LOW-001',
         'in_stock' => 3,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -375,7 +398,8 @@ test('part model correctly identifies low stock', function () {
         'sku' => 'NORMAL-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 800.00,
+        'unit_cost_price' => 800.00,
+        'unit_sale_price' => 1040.00,
         'is_active' => true,
     ]);
 
@@ -389,7 +413,8 @@ test('part model can deduct stock successfully', function () {
         'sku' => 'TEST-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -405,7 +430,8 @@ test('part model cannot deduct more stock than available', function () {
         'sku' => 'TEST-001',
         'in_stock' => 5,
         'reorder_point' => 2,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -421,7 +447,8 @@ test('part model can add stock', function () {
         'sku' => 'TEST-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -438,7 +465,8 @@ test('parts with manufacturer and model are displayed correctly', function () {
         'model' => 'iPhone 13 Pro',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 3000.00,
+        'unit_cost_price' => 3000.00,
+        'unit_sale_price' => 3900.00,
         'is_active' => true,
     ]);
 
@@ -456,7 +484,8 @@ test('parts without manufacturer show N/A', function () {
         'sku' => 'GEN-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 500.00,
+        'unit_cost_price' => 500.00,
+        'unit_sale_price' => 650.00,
         'is_active' => true,
     ]);
 
@@ -473,7 +502,8 @@ test('parts without supplier show N/A', function () {
         'sku' => 'NO-SUP-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 500.00,
+        'unit_cost_price' => 500.00,
+        'unit_sale_price' => 650.00,
         'is_active' => true,
     ]);
 
@@ -503,7 +533,8 @@ test('modal opens correctly for editing part', function () {
         'model' => 'Galaxy S21',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1500.00,
+        'unit_cost_price' => 1500.00,
+        'unit_sale_price' => 1950.00,
         'is_active' => true,
     ]);
 
@@ -536,7 +567,8 @@ test('parts inventory displays correct statistics', function () {
         'sku' => 'P1-001',
         'in_stock' => 10,
         'reorder_point' => 5,
-        'unit_price' => 1000.00,
+        'unit_cost_price' => 1000.00,
+        'unit_sale_price' => 1300.00,
         'is_active' => true,
     ]);
 
@@ -545,7 +577,8 @@ test('parts inventory displays correct statistics', function () {
         'sku' => 'P2-001',
         'in_stock' => 2,
         'reorder_point' => 5,
-        'unit_price' => 500.00,
+        'unit_cost_price' => 500.00,
+        'unit_sale_price' => 650.00,
         'is_active' => true,
     ]);
 
