@@ -23,9 +23,9 @@ Route::get('dashboard', function () {
 // Administrator routes
 Route::middleware(['auth', 'role:administrator'])->prefix('admin')->name('admin.')->group(function () {
     Volt::route('dashboard', 'admin.dashboard')->name('dashboard');
-    Volt::route('quote-requests', 'admin.quote-requests')->name('quote-requests');
     Volt::route('parts-inventory', 'admin.parts-inventory')->name('parts-inventory');
     Volt::route('suppliers', 'admin.suppliers')->name('suppliers');
+    Volt::route('services', 'admin.services')->name('services');
 });
 
 // Technician routes
@@ -36,6 +36,9 @@ Route::middleware(['auth', 'role:technician'])->prefix('technician')->name('tech
 // Counter Staff routes
 Route::middleware(['auth', 'role:counter_staff'])->prefix('counter')->name('counter.')->group(function () {
     Volt::route('dashboard', 'counter.dashboard')->name('dashboard');
+    Volt::route('quote-requests', 'counter.quote-requests')->name('quote-requests');
+    Volt::route('job-orders', 'counter.job-orders')->name('job-orders');
+    Volt::route('job-orders/create', 'counter.job-orders-create')->name('job-orders.create');
 });
 
 Route::middleware(['auth'])->group(function () {

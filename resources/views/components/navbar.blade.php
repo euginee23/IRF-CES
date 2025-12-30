@@ -21,14 +21,22 @@
                         <a href="{{ route('staff.index') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Staff
                         </a>
-                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
-                            Quotes
-                        </a>
                         <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Inventory
                         </a>
                         <a href="{{ route('admin.suppliers') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/suppliers') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Suppliers
+                        </a>
+                        <a href="{{ route('admin.services') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/services') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
+                            Services
+                        </a>
+                    @endif
+                    @if(auth()->user()->isCounterStaff())
+                        <a href="{{ route('counter.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('counter/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
+                            Quotes
+                        </a>
+                        <a href="{{ route('counter.job-orders') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('counter/job-orders*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
+                            Job Orders
                         </a>
                     @endif
                 </div>
@@ -146,11 +154,19 @@
                         <a href="{{ route('staff.index') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Staff
                         </a>
-                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
-                            Quotes
-                        </a>
                         <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Inventory
+                        </a>
+                        <a href="{{ route('admin.services') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/services') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Services
+                        </a>
+                    @endif
+                    @if(auth()->user()->isCounterStaff())
+                        <a href="{{ route('counter.quote-requests') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('counter/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Quotes
+                        </a>
+                        <a href="{{ route('counter.job-orders') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('counter/job-orders*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Job Orders
                         </a>
                     @endif
                 </div>
