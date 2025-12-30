@@ -6,11 +6,11 @@
     <title>419 - Page Expired</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="antialiased bg-gradient-to-br from-zinc-50 via-slate-50 to-zinc-100 dark:from-zinc-950 dark:via-slate-950 dark:to-zinc-900">
+<body class="antialiased bg-gradient-to-br from-zinc-50 via-slate-50 to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
     <div class="min-h-screen flex items-center justify-center p-4">
         <div class="max-w-2xl w-full">
             <!-- Error Card -->
-            <div class="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <div class="bg-white dark:bg-zinc-800 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                 <!-- Header with gradient -->
                 <div class="bg-gradient-to-r from-amber-600 to-orange-600 px-8 py-6">
                     <div class="flex items-center justify-center">
@@ -56,7 +56,7 @@
                             Refresh Page
                         </button>
                         <a href="{{ url('/') }}" 
-                           class="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-all shadow-md hover:shadow-lg">
+                           class="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-xl transition-all shadow-md hover:shadow-lg">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                             </svg>
@@ -66,7 +66,7 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="px-8 py-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800">
+                <div class="px-8 py-6 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
                     <p class="text-sm text-center text-zinc-500 dark:text-zinc-400">
                         Security tip: Sessions expire to protect your data when inactive.
                     </p>

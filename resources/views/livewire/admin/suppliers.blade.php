@@ -164,7 +164,7 @@ new class extends Component {
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Total Suppliers -->
-            <div class="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+            <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                 <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative p-6">
                     <div class="flex items-start justify-between mb-4">
@@ -183,7 +183,7 @@ new class extends Component {
             </div>
 
             <!-- Active Suppliers -->
-            <div class="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+            <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                 <div class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative p-6">
                     <div class="flex items-start justify-between mb-4">
@@ -204,8 +204,8 @@ new class extends Component {
         </div>
 
         <!-- Filters Section -->
-        <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-md overflow-hidden">
-            <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-900 dark:to-zinc-900 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+        <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-800 dark:to-zinc-800 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
                 <div class="flex items-center gap-2">
                     <svg class="w-5 h-5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
@@ -230,7 +230,7 @@ new class extends Component {
                                 id="search"
                                 wire:model.live.debounce.300ms="search"
                                 placeholder="Search by name, contact, email, phone..."
-                                class="w-full pl-10 pr-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                                class="w-full pl-10 pr-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                             />
                         </div>
                     </div>
@@ -239,8 +239,8 @@ new class extends Component {
                         <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                             Quick Filter
                         </label>
-                        <label class="flex items-center gap-3 px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 cursor-pointer hover:border-emerald-400 dark:hover:border-emerald-500 transition-all group">
-                            <input type="checkbox" wire:model.live="showActiveOnly" class="w-5 h-5 text-emerald-600 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 transition-all">
+                        <label class="flex items-center gap-3 px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 cursor-pointer hover:border-emerald-400 dark:hover:border-emerald-500 transition-all group">
+                            <input type="checkbox" wire:model.live="showActiveOnly" class="w-5 h-5 text-emerald-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 transition-all">
                             <div class="flex items-center gap-2">
                                 <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -256,8 +256,8 @@ new class extends Component {
         <!-- Suppliers Table continues in next message due to length... -->
 
         <!-- Table Section -->
-        <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-md overflow-hidden">
-            <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-900 dark:to-zinc-900 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-800 dark:to-zinc-800 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <svg class="w-5 h-5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
@@ -309,7 +309,7 @@ new class extends Component {
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="bg-zinc-50 dark:bg-zinc-900/50">
+                            <tr class="bg-zinc-50 dark:bg-zinc-800/50">
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
                                     Supplier Info
                                 </th>
@@ -327,7 +327,7 @@ new class extends Component {
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-800">
+                        <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-800">
                             @foreach($suppliers as $supplier)
                                 <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-150">
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -389,7 +389,7 @@ new class extends Component {
                                                 Active
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-zinc-700 bg-zinc-100 dark:text-zinc-300 dark:bg-zinc-700/50 rounded-full">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-zinc-700 bg-zinc-100 dark:text-zinc-300 dark:bg-zinc-800/50 rounded-full">
                                                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 8 8">
                                                     <circle cx="4" cy="4" r="3"/>
                                                 </svg>
@@ -471,7 +471,7 @@ new class extends Component {
                 x-transition:leave="ease-in duration-200"
                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden"
+                class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden"
                 x-on:click.stop>
                 
                 <!-- Modal Header -->
@@ -515,7 +515,7 @@ new class extends Component {
                                 type="text"
                                 id="name"
                                 wire:model="name"
-                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                 placeholder="Enter supplier name"
                             />
                             @error('name')
@@ -532,7 +532,7 @@ new class extends Component {
                                 type="text"
                                 id="contact_person"
                                 wire:model="contact_person"
-                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                 placeholder="Enter contact person name"
                             />
                             @error('contact_person')
@@ -551,7 +551,7 @@ new class extends Component {
                                     type="email"
                                     id="email"
                                     wire:model="email"
-                                    class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                                    class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                     placeholder="supplier@example.com"
                                 />
                                 @error('email')
@@ -568,7 +568,7 @@ new class extends Component {
                                     type="text"
                                     id="phone"
                                     wire:model="phone"
-                                    class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                                    class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                     placeholder="+1 (555) 000-0000"
                                 />
                                 @error('phone')
@@ -586,7 +586,7 @@ new class extends Component {
                                 id="address"
                                 wire:model="address"
                                 rows="2"
-                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all resize-none"
+                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all resize-none"
                                 placeholder="Enter full address"
                             ></textarea>
                             @error('address')
@@ -603,7 +603,7 @@ new class extends Component {
                                 type="url"
                                 id="website"
                                 wire:model="website"
-                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                 placeholder="https://supplier.com"
                             />
                             @error('website')
@@ -620,7 +620,7 @@ new class extends Component {
                                 id="notes"
                                 wire:model="notes"
                                 rows="3"
-                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all resize-none"
+                                class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all resize-none"
                                 placeholder="Additional notes or information"
                             ></textarea>
                             @error('notes')
@@ -634,7 +634,7 @@ new class extends Component {
                                 type="checkbox"
                                 id="is_active"
                                 wire:model="is_active"
-                                class="w-5 h-5 text-emerald-600 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 rounded focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0"
+                                class="w-5 h-5 text-emerald-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 rounded focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0"
                             />
                             <label for="is_active" class="text-sm font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer">
                                 Mark this supplier as active
@@ -643,7 +643,7 @@ new class extends Component {
                     </div>
 
                     <!-- Modal Footer -->
-                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-3">
+                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-3">
                         <button
                             type="button"
                             x-on:click="$wire.closeModal()"

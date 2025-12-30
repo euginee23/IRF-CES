@@ -1,73 +1,111 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="color-scheme" content="light dark">
 
 <title>{{ $title ?? 'IRF-CES - Intelligent Repair Flow & Client Engagement System' }}</title>
 
-{{-- CRITICAL: Apply theme IMMEDIATELY before anything else renders --}}
+{{-- CRITICAL: Apply theme IMMEDIATELY - This MUST run before anything else --}}
 <script>
-    // Ultra-fast theme detection and application - runs synchronously
+    // STEP 1: Detect and apply theme SYNCHRONOUSLY (blocking is REQUIRED)
     (function() {
-        try {
+        const html = document.documentElement;
+        
+        // Disable ALL transitions globally until page loads
+        html.classList.add('theme-loading');
+        
+        const theme = localStorage.getItem('theme') || 'system';
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+        
+        if (isDark) {
+            html.classList.add('dark');
+            html.setAttribute('data-theme', 'dark');
+            html.style.backgroundColor = '#1e1e1e';
+            html.style.colorScheme = 'dark';
+            // Set color-scheme meta dynamically
+            const meta = document.createElement('meta');
+            meta.name = 'color-scheme';
+            meta.content = 'dark';
+            document.head.appendChild(meta);
+        } else {
+            html.classList.remove('dark');
+            html.setAttribute('data-theme', 'light');
+            html.style.backgroundColor = '#ffffff';
+            html.style.colorScheme = 'light';
+            const meta = document.createElement('meta');
+            meta.name = 'color-scheme';
+            meta.content = 'light';
+            document.head.appendChild(meta);
+        }
+        
+        // Store reusable function for navigation
+        window.__applyTheme = function() {
             const theme = localStorage.getItem('theme') || 'system';
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
-            const html = document.documentElement;
             
             if (isDark) {
                 html.classList.add('dark');
                 html.setAttribute('data-theme', 'dark');
-                html.style.cssText = 'background-color: #09090b !important; color-scheme: dark !important;';
+                html.style.backgroundColor = '#1e1e1e';
+                html.style.colorScheme = 'dark';
             } else {
                 html.classList.remove('dark');
                 html.setAttribute('data-theme', 'light');
-                html.style.cssText = 'background-color: #ffffff !important; color-scheme: light !important;';
+                html.style.backgroundColor = '#ffffff';
+                html.style.colorScheme = 'light';
             }
-        } catch(e) {}
+        };
     })();
 </script>
 
-{{-- Ultra-aggressive inline styles - applied BEFORE any external CSS --}}
+{{-- Ultra-aggressive inline styles - MUST be before Vite assets --}}
 <style>
-    /* Force immediate theme application - highest priority */
-    html, body {
+    /* CRITICAL: Force theme colors at highest specificity */
+    html {
         margin: 0;
         padding: 0;
     }
     
-    html.dark,
-    html.dark body,
-    html[data-theme="dark"],
-    html[data-theme="dark"] body {
-        background-color: #09090b !important;
-        color: #fafafa !important;
+    body {
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Dark mode - Maximum priority - Improved visibility */
+    html.dark {
+        background-color: #1e1e1e !important;
+        color: #f5f5f5 !important;
         color-scheme: dark !important;
     }
     
-    html:not(.dark),
-    html:not(.dark) body,
-    html[data-theme="light"],
-    html[data-theme="light"] body {
+    html.dark body {
+        background-color: #1e1e1e !important;
+        color: #f5f5f5 !important;
+    }
+    
+    html.dark *:not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon) {
+        border-color: rgb(63 63 70 / 0.5);
+    }
+    
+    /* Light mode - Maximum priority */
+    html:not(.dark) {
         background-color: #ffffff !important;
         color: #18181b !important;
         color-scheme: light !important;
     }
     
-    /* Prevent any transition during initial load and navigation */
-    html, html *, html *::before, html *::after {
-        transition: none !important;
-        animation-duration: 0s !important;
+    html:not(.dark) body {
+        background-color: #ffffff !important;
+        color: #18181b !important;
     }
     
-    /* Force dark mode on all common container elements */
-    html.dark main,
-    html.dark div,
-    html.dark section,
-    html.dark article,
-    html.dark nav,
-    html.dark header,
-    html.dark footer {
-        border-color: rgb(63 63 70 / 0.5);
+    /* Disable transitions until page fully loads */
+    html.theme-loading,
+    html.theme-loading *,
+    html.theme-loading *::before,
+    html.theme-loading *::after {
+        transition: none !important;
+        animation-duration: 0s !important;
     }
 </style>
 
@@ -79,3 +117,49 @@
 <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+{{-- Re-enable transitions after everything loads --}}
+<script>
+    // Wait for complete page load before enabling transitions
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                document.documentElement.classList.remove('theme-loading');
+            }, 200);
+        });
+    } else {
+        // Page already loaded
+        setTimeout(function() {
+            document.documentElement.classList.remove('theme-loading');
+        }, 200);
+    }
+    
+    // Handle Livewire navigation - CRITICAL for maintaining theme
+    document.addEventListener('livewire:navigating', function() {
+        const html = document.documentElement;
+        // Keep transitions disabled during navigation
+        html.classList.add('theme-loading');
+        // Apply theme IMMEDIATELY before any content changes
+        if (window.__applyTheme) {
+            window.__applyTheme();
+        }
+    });
+    
+    document.addEventListener('livewire:navigated', function() {
+        // Re-apply theme IMMEDIATELY after navigation
+        if (window.__applyTheme) {
+            window.__applyTheme();
+        }
+        // Wait longer before re-enabling transitions to ensure content is stable
+        setTimeout(function() {
+            document.documentElement.classList.remove('theme-loading');
+        }, 150);
+    });
+    
+    // Also apply on page show (back/forward navigation)
+    window.addEventListener('pageshow', function(event) {
+        if (window.__applyTheme) {
+            window.__applyTheme();
+        }
+    });
+</script>

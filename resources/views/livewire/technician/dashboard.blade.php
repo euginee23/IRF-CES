@@ -69,7 +69,7 @@ state(['tasks' => fn() => [
                             <span class="inline-flex mt-2 items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                 {{ $task['status'] === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : '' }}
                                 {{ $task['status'] === 'in_progress' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' : '' }}
-                                {{ $task['status'] === 'pending' ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-300' : '' }}
+                                {{ $task['status'] === 'pending' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300' : '' }}
                             ">
                                 {{ ucfirst(str_replace('_', ' ', $task['status'])) }}
                             </span>

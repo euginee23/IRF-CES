@@ -29,7 +29,7 @@
         </div>
 
         <!-- Active Repairs -->
-        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800/50 dark:backdrop-blur-sm p-6 border border-zinc-200 dark:border-zinc-700/50 shadow-sm hover:shadow-md dark:hover:shadow-zinc-900/50 transition-all">
+        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800 dark:backdrop-blur-sm p-6 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md dark:hover:shadow-black/30 transition-all">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-1">Active Repairs</p>
@@ -46,7 +46,7 @@
         </div>
 
         <!-- Completed -->
-        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800/50 dark:backdrop-blur-sm p-6 border border-zinc-200 dark:border-zinc-700/50 shadow-sm hover:shadow-md dark:hover:shadow-zinc-900/50 transition-all">
+        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800 dark:backdrop-blur-sm p-6 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md dark:hover:shadow-black/30 transition-all">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-1">Completed</p>
@@ -65,8 +65,8 @@
     <!-- Main Content Area -->
     <div class="grid gap-6 lg:grid-cols-2">
         <!-- Recent Activity -->
-        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800/50 dark:backdrop-blur-sm border border-zinc-200 dark:border-zinc-700/50 shadow-sm">
-            <div class="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700/50 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-900/30 dark:to-zinc-800/30">
+        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800 dark:backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <div class="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-800/40 dark:to-zinc-800/30">
                 <h2 class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                     <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
@@ -80,7 +80,7 @@
 
             <div class="p-6 space-y-4">
                 <!-- Activity Item -->
-                <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/30 transition-all">
+                <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-700/30 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-700/40 transition-all">
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -94,7 +94,7 @@
                 </div>
 
                 <!-- Activity Item -->
-                <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/30 transition-all">
+                <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-700/30 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-700/40 transition-all">
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/40 dark:to-green-800/40 flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -108,7 +108,7 @@
                 </div>
 
                 <!-- Activity Item -->
-                <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/30 transition-all">
+                <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-700/30 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-700/40 transition-all">
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/40 flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -124,8 +124,8 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800/50 dark:backdrop-blur-sm border border-zinc-200 dark:border-zinc-700/50 shadow-sm">
-            <div class="p-6 border-b border-zinc-200 dark:border-zinc-700/50 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-900/30 dark:to-zinc-800/30">
+        <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-800 dark:backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <div class="p-6 border-b border-zinc-200 dark:border-zinc-700 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-800/40 dark:to-zinc-800/30">
                 <h2 class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                     <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
@@ -137,7 +137,7 @@
             <div class="p-6 grid grid-cols-2 gap-4">
                 @if(auth()->user()->isAdministrator())
                     <a href="{{ route('staff.index') }}" wire:navigate class="group p-6 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border border-blue-200 dark:border-blue-700/50 hover:shadow-lg dark:hover:shadow-blue-900/20 hover:-translate-y-1 transition-all">
-                        <div class="w-12 h-12 bg-white dark:bg-zinc-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <div class="w-12 h-12 bg-white dark:bg-zinc-800/60 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                             <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                             </svg>
@@ -147,7 +147,7 @@
                     </a>
 
                     <a href="{{ route('admin.quote-requests') }}" wire:navigate class="group p-6 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border border-purple-200 dark:border-purple-700/50 hover:shadow-lg dark:hover:shadow-purple-900/20 hover:-translate-y-1 transition-all">
-                        <div class="w-12 h-12 bg-white dark:bg-zinc-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <div class="w-12 h-12 bg-white dark:bg-zinc-800/60 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                             <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                             </svg>
@@ -157,7 +157,7 @@
                     </a>
 
                     <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="group p-6 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border border-green-200 dark:border-green-700/50 hover:shadow-lg dark:hover:shadow-green-900/20 hover:-translate-y-1 transition-all">
-                        <div class="w-12 h-12 bg-white dark:bg-zinc-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <div class="w-12 h-12 bg-white dark:bg-zinc-800/60 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                             <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                             </svg>
@@ -168,7 +168,7 @@
                 @endif
 
                 <a href="{{ route('profile.edit') }}" class="group p-6 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 border border-amber-200 dark:border-amber-700/50 hover:shadow-lg dark:hover:shadow-amber-900/20 hover:-translate-y-1 transition-all">
-                    <div class="w-12 h-12 bg-white dark:bg-zinc-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <div class="w-12 h-12 bg-white dark:bg-zinc-800/60 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                         <svg class="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                         </svg>

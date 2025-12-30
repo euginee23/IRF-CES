@@ -7,8 +7,8 @@ new class extends Component {
 
     public function mount(): void
     {
-        // This will be synced with localStorage via Alpine.js
-        $this->theme = 'system';
+        // Initialize from cookie if present so server-rendered UI matches client preference
+        $this->theme = request()->cookie('theme', 'system');
     }
 
     public function setTheme(string $theme): void
@@ -16,24 +16,27 @@ new class extends Component {
         $this->theme = $theme;
         
         // Apply theme immediately via JavaScript
-        $this->js("
-            const theme = '$theme';
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-            } else if (theme === 'light') {
-                document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-            } else {
-                localStorage.setItem('theme', 'system');
-                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-            }
-            // Dispatch event for navbar theme toggle
-            window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme } }));
+        $this->js("\
+            const theme = '$theme';\n\
+            if (theme === 'dark') {\n\
+                document.documentElement.classList.add('dark');\n\
+                localStorage.setItem('theme', 'dark');\n\
+                document.cookie = 'theme=dark;path=/;max-age=31536000';\n\
+            } else if (theme === 'light') {\n\
+                document.documentElement.classList.remove('dark');\n\
+                localStorage.setItem('theme', 'light');\n\
+                document.cookie = 'theme=light;path=/;max-age=31536000';\n\
+            } else {\n\
+                localStorage.setItem('theme', 'system');\n\
+                document.cookie = 'theme=system;path=/;max-age=31536000';\n\
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {\n\
+                    document.documentElement.classList.add('dark');\n\
+                } else {\n\
+                    document.documentElement.classList.remove('dark');\n\
+                }\n\
+            }\n\
+            // Dispatch event for navbar theme toggle\n\
+            window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme } }));\n\
         ");
         
         // Also dispatch for backwards compatibility

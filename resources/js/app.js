@@ -1,77 +1,34 @@
 // Livewire and Alpine are automatically loaded via @vite directive
 
-// Ultra-fast theme management to prevent ANY flicker
+// Theme management - simplified to work with head.blade.php
 const THEME_KEY = 'theme';
-const DARK_BG = '#09090b';
-const LIGHT_BG = '#ffffff';
 
 function isDarkMode() {
     const theme = localStorage.getItem(THEME_KEY) || 'system';
     return theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
 
-function forceApplyTheme() {
-    const html = document.documentElement;
-    const dark = isDarkMode();
-    
-    // Use requestAnimationFrame for immediate visual update
-    requestAnimationFrame(() => {
-        if (dark) {
-            html.classList.add('dark');
-            html.setAttribute('data-theme', 'dark');
-            html.style.cssText = `background-color: ${DARK_BG} !important; color-scheme: dark !important;`;
-            if (document.body) {
-                document.body.style.cssText = `background-color: ${DARK_BG} !important;`;
-            }
-        } else {
-            html.classList.remove('dark');
-            html.setAttribute('data-theme', 'light');
-            html.style.cssText = `background-color: ${LIGHT_BG} !important; color-scheme: light !important;`;
-            if (document.body) {
-                document.body.style.cssText = `background-color: ${LIGHT_BG} !important;`;
-            }
-        }
-    });
-}
-
 function applyTheme(theme) {
-    // Store preference
     localStorage.setItem(THEME_KEY, theme);
-    // Apply immediately
-    forceApplyTheme();
-}
-
-// Apply immediately on script load
-forceApplyTheme();
-
-// Ultra-aggressive protection: Watch for ANY DOM changes that might affect theme
-const observer = new MutationObserver(() => {
     const html = document.documentElement;
-    const shouldBeDark = isDarkMode();
+    const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     
-    if (shouldBeDark && !html.classList.contains('dark')) {
-        requestAnimationFrame(() => {
-            html.classList.add('dark');
-            html.style.backgroundColor = DARK_BG;
-        });
-    } else if (!shouldBeDark && html.classList.contains('dark')) {
-        requestAnimationFrame(() => {
-            html.classList.remove('dark');
-            html.style.backgroundColor = LIGHT_BG;
-        });
+    // Temporarily disable transitions during theme change
+    html.classList.add('theme-loading');
+    
+    if (dark) {
+        html.classList.add('dark');
+        html.setAttribute('data-theme', 'dark');
+    } else {
+        html.classList.remove('dark');
+        html.setAttribute('data-theme', 'light');
     }
-});
-
-observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['class'],
-    childList: false
-});
-
-// Livewire navigation hooks - apply theme at every stage
-document.addEventListener('livewire:navigating', forceApplyTheme);
-document.addEventListener('livewire:navigate', forceApplyTheme);
-document.addEventListener('livewire:navigated', forceApplyTheme);
+    
+    // Re-enable transitions after theme is applied
+    setTimeout(() => {
+        html.classList.remove('theme-loading');
+    }, 50);
+}
 
 // Livewire initialization
 document.addEventListener('livewire:init', () => {
@@ -80,15 +37,12 @@ document.addEventListener('livewire:init', () => {
         const theme = event[0] || 'system';
         applyTheme(theme);
     });
-    
-    // Apply on init
-    forceApplyTheme();
 });
 
 // Watch for system theme changes when in system mode
 const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 darkModeMediaQuery.addEventListener('change', (e) => {
-    const storedTheme = localStorage.getItem('theme') || 'system';
+    const storedTheme = localStorage.getItem(THEME_KEY) || 'system';
     if (storedTheme === 'system') {
         applyTheme('system');
     }

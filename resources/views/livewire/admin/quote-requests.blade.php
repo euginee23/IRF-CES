@@ -179,7 +179,7 @@ new class extends Component {
                                 <td class="px-6 py-5">
                                     <select 
                                         wire:change="updateStatus({{ $request->id }}, $event.target.value)"
-                                        class="text-xs px-2 py-1 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 cursor-pointer
+                                    class="text-xs px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 cursor-pointer
                                         {{ $request->status === 'pending' ? 'text-amber-700 dark:text-amber-400' : '' }}
                                         {{ $request->status === 'reviewed' ? 'text-blue-700 dark:text-blue-400' : '' }}
                                         {{ $request->status === 'quoted' ? 'text-purple-700 dark:text-purple-400' : '' }}
@@ -293,7 +293,7 @@ new class extends Component {
                                 <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Status:</span>
                                 <select 
                                     wire:change="updateStatus({{ $selectedRequest->id }}, $event.target.value)"
-                                    class="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-sm font-semibold cursor-pointer
+                                class="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold cursor-pointer
                                     {{ $selectedRequest->status === 'pending' ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : '' }}
                                     {{ $selectedRequest->status === 'reviewed' ? 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : '' }}
                                     {{ $selectedRequest->status === 'quoted' ? 'text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' : '' }}
@@ -384,7 +384,7 @@ new class extends Component {
                     <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50">
                         <a 
                             href="mailto:{{ $selectedRequest->email }}?subject=Repair Quote for {{ $selectedRequest->manufacturer }} {{ $selectedRequest->model }}"
-                            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all">
+                        class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                             </svg>

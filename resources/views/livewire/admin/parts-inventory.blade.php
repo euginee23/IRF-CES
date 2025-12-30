@@ -290,7 +290,7 @@ new class extends Component {
             <!-- Stats Cards with Modern Design -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- Total Parts Card -->
-                <div class="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                     <div class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div class="relative p-6">
                         <div class="flex items-start justify-between mb-4">
@@ -310,7 +310,7 @@ new class extends Component {
                 </div>
 
                 <!-- Low Stock Card -->
-                <div class="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                     <div class="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div class="relative p-6">
                         <div class="flex items-start justify-between mb-4">
@@ -332,7 +332,7 @@ new class extends Component {
                 </div>
 
                 <!-- Total Value Card -->
-                <div class="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                     <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div class="relative p-6">
                         <div class="flex items-start justify-between mb-4">
@@ -354,8 +354,8 @@ new class extends Component {
             </div>
 
             <!-- Advanced Filters Section -->
-            <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-md overflow-hidden">
-                <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-900 dark:to-zinc-900 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+            <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-800 dark:to-zinc-800 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
                     <div class="flex items-center gap-2">
                         <svg class="w-5 h-5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
@@ -380,7 +380,7 @@ new class extends Component {
                                     id="search"
                                     wire:model.live.debounce.300ms="search"
                                     placeholder="Search by name, SKU, supplier..."
-                                    class="w-full pl-10 pr-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                    class="w-full pl-10 pr-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                                 />
                             </div>
                         </div>
@@ -393,7 +393,7 @@ new class extends Component {
                                 <select
                                     id="categoryFilter"
                                     wire:model.live="categoryFilter"
-                                    class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
+                                    class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="">All Categories</option>
                                     @foreach($categories as $cat)
@@ -412,8 +412,8 @@ new class extends Component {
                             <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                                 Quick Filter
                             </label>
-                            <label class="flex items-center gap-3 px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 cursor-pointer hover:border-orange-400 dark:hover:border-orange-500 transition-all group">
-                                <input type="checkbox" wire:model.live="showLowStock" class="w-5 h-5 text-orange-600 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 transition-all">
+                            <label class="flex items-center gap-3 px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 cursor-pointer hover:border-orange-400 dark:hover:border-orange-500 transition-all group">
+                                <input type="checkbox" wire:model.live="showLowStock" class="w-5 h-5 text-orange-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 transition-all">
                                 <div class="flex items-center gap-2">
                                     <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -427,8 +427,8 @@ new class extends Component {
             </div>
 
             <!-- Modern Parts Table -->
-            <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-md overflow-hidden">
-                <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-900 dark:to-zinc-900 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+            <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-zinc-50 to-slate-50 dark:from-zinc-800 dark:to-zinc-800 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <svg class="w-5 h-5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,7 +450,7 @@ new class extends Component {
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full">
-                        <thead class="bg-zinc-100 dark:bg-zinc-900/70 border-b-2 border-zinc-200 dark:border-zinc-800">
+                        <thead class="bg-zinc-100 dark:bg-zinc-800/70 border-b-2 border-zinc-200 dark:border-zinc-800">
                             <tr>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Part Details</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Manufacturer/Model</th>
@@ -627,7 +627,7 @@ new class extends Component {
                 </div>
 
                 @if($parts->hasPages())
-                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800">
+                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-800">
                         {{ $parts->links() }}
                     </div>
                 @endif
@@ -641,17 +641,17 @@ new class extends Component {
             style="display: none;"
         >
             <!-- Backdrop with blur -->
-            <div 
-                x-show="show"
-                x-transition:enter="ease-out duration-300"
-                x-transition:enter-start="opacity-0"
-                x-transition:enter-end="opacity-100"
-                x-transition:leave="ease-in duration-200"
-                x-transition:leave-start="opacity-100"
-                x-transition:leave-end="opacity-0"
-                wire:click="closeModal"
-                class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm transition-opacity"
-            ></div>
+                <div 
+                    x-show="show"
+                    x-transition:enter="ease-out duration-300"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    x-transition:leave="ease-in duration-200"
+                    x-transition:leave-start="opacity-100"
+                    x-transition:leave-end="opacity-0"
+                    wire:click="closeModal"
+                    class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm transition-opacity"
+                ></div>
 
             <!-- Modal Dialog -->
             <div class="flex min-h-full items-center justify-center p-4">
@@ -663,7 +663,7 @@ new class extends Component {
                     x-transition:leave="ease-in duration-200"
                     x-transition:leave-start="opacity-100 scale-100"
                     x-transition:leave-end="opacity-0 scale-95"
-                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
+                    class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-3xl w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
                 >
                         
                         <!-- Compact Modal Header -->
@@ -705,7 +705,7 @@ new class extends Component {
                                         <input 
                                             type="text" 
                                             wire:model="name" 
-                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
                                             placeholder="e.g., iPhone 13 LCD Screen"
                                         />
                                         @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -719,7 +719,7 @@ new class extends Component {
                                         <input 
                                             type="text" 
                                             wire:model="sku" 
-                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
                                             placeholder="LCD-IP13-001"
                                         />
                                         @error('sku') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -733,7 +733,7 @@ new class extends Component {
                                         <div class="relative">
                                             <select
                                                 wire:model="category"
-                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                                             >
                                                 <option value="">Select Category</option>
                                                 @foreach($categories as $cat)
@@ -757,7 +757,7 @@ new class extends Component {
                                         <div class="relative">
                                             <select
                                                 wire:model="supplier"
-                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                                             >
                                                 <option value="">Select Supplier</option>
                                                 @foreach($suppliers as $supplierId => $supplierName)
@@ -781,7 +781,7 @@ new class extends Component {
                                         <div class="relative">
                                             <select
                                                 wire:model="manufacturer"
-                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                                             >
                                                 <option value="">Select Manufacturer</option>
                                                 @foreach($this->manufacturers() as $mfr)
@@ -805,7 +805,7 @@ new class extends Component {
                                         <input 
                                             type="text" 
                                             wire:model="model" 
-                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
+                                            class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
                                             placeholder="e.g., iPhone 13 Pro, Galaxy S21, Redmi Note 10"
                                         />
                                         @error('model') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -832,7 +832,7 @@ new class extends Component {
                                                 type="number" 
                                                 wire:model="in_stock" 
                                                 min="0" 
-                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
                                                 placeholder="0"
                                             />
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">units</span>
@@ -854,7 +854,7 @@ new class extends Component {
                                                 type="number" 
                                                 wire:model="reorder_point" 
                                                 min="0" 
-                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" 
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" 
                                                 placeholder="0"
                                             />
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">units</span>
@@ -874,7 +874,7 @@ new class extends Component {
                                                 wire:model="unit_price" 
                                                 step="0.01" 
                                                 min="0" 
-                                                class="w-full pl-7 pr-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
+                                                class="w-full pl-7 pr-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" 
                                                 placeholder="0.00"
                                             />
                                         </div>
@@ -894,7 +894,7 @@ new class extends Component {
                                 <textarea 
                                     wire:model="description" 
                                     rows="2" 
-                                    class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+                                    class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
                                     placeholder="Optional: Add specifications, compatibility notes, or other details..."
                                 ></textarea>
                                 @error('description') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -902,11 +902,11 @@ new class extends Component {
 
                             <!-- Active Status -->
                             <div class="mb-6">
-                                <label class="flex items-center gap-2.5 p-3 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-all">
+                                <label class="flex items-center gap-2.5 p-3 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-all">
                                     <input 
                                         type="checkbox" 
                                         wire:model="is_active" 
-                                        class="w-4 h-4 text-blue-600 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-all"
+                                        class="w-4 h-4 text-blue-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 rounded focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-all"
                                     >
                                     <div class="flex items-center gap-2">
                                         <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -979,7 +979,7 @@ new class extends Component {
                     x-transition:leave="ease-in duration-200"
                     x-transition:leave-start="opacity-100 scale-100"
                     x-transition:leave-end="opacity-0 scale-95"
-                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-lg w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
+                    class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-lg w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
                 >
                     <!-- Modal Header -->
                     <div class="bg-gradient-to-r from-orange-600 to-amber-600 px-6 py-4 flex items-center justify-between">
@@ -1026,7 +1026,7 @@ new class extends Component {
                             <textarea 
                                 wire:model="restockNotes"
                                 rows="4"
-                                class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-orange-500 dark:focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all resize-none"
+                                class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-orange-500 dark:focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all resize-none"
                                 placeholder="Add any specific requirements, delivery preferences, or special instructions for the supplier..."
                             ></textarea>
                             <p class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -1036,7 +1036,7 @@ new class extends Component {
                     </div>
 
                     <!-- Modal Footer -->
-                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-3">
+                    <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-3">
                         <button 
                             type="button" 
                             wire:click="closeRestockModal" 

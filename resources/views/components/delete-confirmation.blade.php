@@ -57,7 +57,7 @@
                 x-transition:leave-start="opacity-100 scale-100"
                 x-transition:leave-end="opacity-0 scale-95"
                 @click.away="cancel()"
-                class="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 shadow-2xl ring-1 ring-zinc-950/5 dark:ring-white/10 transition-all"
+                class="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-zinc-800 shadow-2xl ring-1 ring-zinc-950/5 dark:ring-white/10 transition-all"
             >
                 <!-- Icon & Content -->
                 <div class="p-6">
@@ -77,7 +77,7 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="bg-zinc-50 dark:bg-zinc-900/50 px-6 py-4 flex items-center justify-end gap-3 border-t border-zinc-200 dark:border-zinc-800">
+                <div class="bg-zinc-50 dark:bg-zinc-800/50 px-6 py-4 flex items-center justify-end gap-3 border-t border-zinc-200 dark:border-zinc-700">
                     <button 
                         type="button"
                         @click="cancel()"
@@ -87,7 +87,7 @@
                     <button 
                         type="button"
                         @click="confirm()"
-                        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-zinc-900 shadow-sm hover:shadow transition-all"
+                        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-zinc-900 shadow-sm hover:shadow transition-all cursor-pointer"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>

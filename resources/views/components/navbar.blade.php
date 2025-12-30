@@ -1,6 +1,6 @@
 @auth
     <!-- Authenticated top navbar matching landing page -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-700/50 shadow-sm dark:shadow-zinc-950/50">
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-700 shadow-sm dark:shadow-black/30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <!-- Logo -->
@@ -14,20 +14,20 @@
 
                 <!-- Navigation Links -->
                 <div class="hidden md:flex items-center gap-1">
-                    <a href="{{ url('/dashboard') }}" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('dashboard') || request()->is('admin/dashboard') || request()->is('technician/dashboard') || request()->is('counter/dashboard') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                    <a href="{{ url('/dashboard') }}" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('dashboard') || request()->is('admin/dashboard') || request()->is('technician/dashboard') || request()->is('counter/dashboard') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                         Dashboard
                     </a>
                     @if(auth()->user()->isAdministrator())
-                        <a href="{{ route('staff.index') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        <a href="{{ route('staff.index') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Staff
                         </a>
-                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Quotes
                         </a>
-                        <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Inventory
                         </a>
-                        <a href="{{ route('admin.suppliers') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/suppliers') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        <a href="{{ route('admin.suppliers') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/suppliers') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Suppliers
                         </a>
                     @endif
@@ -40,8 +40,8 @@
                     
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open" @click.away="open = false" 
-                                class="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200"
-                                :class="open ? 'bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500/20' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'">
+                                class="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 cursor-pointer"
+                                :class="open ? 'bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500/20' : 'hover:bg-zinc-100 dark:hover:bg-zinc-700'">
                             <div class="relative w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-lg ring-2 ring-white dark:ring-zinc-900 transform transition-transform"
                                  :class="{'scale-110': open}">
                                 {{ strtoupper(substr(auth()->user()->name ?? 'U',0,1)) }}
@@ -64,7 +64,7 @@
                              x-transition:leave="transition ease-in duration-150"
                              x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
                              x-transition:leave-end="transform opacity-0 scale-95 -translate-y-2"
-                             class="absolute right-0 mt-3 w-72 bg-white dark:bg-zinc-800/95 dark:backdrop-blur-md rounded-2xl shadow-xl dark:shadow-zinc-950/50 border border-zinc-200 dark:border-zinc-700/50 overflow-hidden"
+                             class="absolute right-0 mt-3 w-72 bg-white dark:bg-zinc-800 dark:backdrop-blur-md rounded-2xl shadow-xl dark:shadow-black/50 border border-zinc-200 dark:border-zinc-700 overflow-hidden"
                              style="display: none;">
                             
                             <!-- User Info Header -->
@@ -90,7 +90,7 @@
                             <div class="p-2">
                                 <a href="{{ route('profile.edit') }}" 
                                    class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 transition-all group cursor-pointer">
-                                    <div class="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
+                                    <div class="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
                                         <svg class="w-5 h-5 text-zinc-600 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                                         </svg>
@@ -110,7 +110,7 @@
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <button type="submit" 
-                                            class="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group">
+                                            class="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group cursor-pointer">
                                         <div class="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center group-hover:bg-red-100 dark:group-hover:bg-red-900/30 transition-colors">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>

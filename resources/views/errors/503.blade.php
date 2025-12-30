@@ -6,11 +6,11 @@
     <title>503 - Service Unavailable</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="antialiased bg-gradient-to-br from-zinc-50 via-slate-50 to-zinc-100 dark:from-zinc-950 dark:via-slate-950 dark:to-zinc-900">
+<body class="antialiased bg-gradient-to-br from-zinc-50 via-slate-50 to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
     <div class="min-h-screen flex items-center justify-center p-4">
         <div class="max-w-2xl w-full">
             <!-- Error Card -->
-            <div class="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <div class="bg-white dark:bg-zinc-800 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                 <!-- Header with gradient -->
                 <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-6">
                     <div class="flex items-center justify-center">
@@ -67,7 +67,7 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="px-8 py-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800">
+                <div class="px-8 py-6 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
                     <p class="text-sm text-center text-zinc-500 dark:text-zinc-400">
                         Thank you for your patience while we make improvements.
                     </p>
