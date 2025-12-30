@@ -3,6 +3,7 @@
 use App\Enums\Role;
 use App\Models\User;
 use App\Models\Skillset;
+use App\Models\Service;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Rule as ValidationRule;
@@ -44,6 +45,13 @@ new class extends Component {
                 'is_primary' => (bool)$s->is_primary,
             ];
         })->toArray();
+    }
+
+    public function with(): array
+    {
+        return [
+            'servicesGrouped' => Service::getGroupedByCategory(),
+        ];
     }
 
     public function addSkill(): void
@@ -267,10 +275,10 @@ new class extends Component {
                                                 <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Specialty</label>
                                                 <select wire:model.defer="skillsets.{{ $i }}.name" class="w-full mt-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                                                     <option value="">Select specialty...</option>
-                                                    @foreach(\App\Enums\TechnicianSkill::getGrouped() as $category => $skills)
+                                                    @foreach($servicesGrouped as $category => $services)
                                                         <optgroup label="{{ $category }}">
-                                                            @foreach($skills as $skill)
-                                                                <option value="{{ $skill->value }}">{{ $skill->value }}</option>
+                                                            @foreach($services as $service)
+                                                                <option value="{{ $service->name }}">{{ $service->name }}</option>
                                                             @endforeach
                                                         </optgroup>
                                                     @endforeach

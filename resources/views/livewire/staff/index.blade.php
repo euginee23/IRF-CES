@@ -8,6 +8,7 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Rule as ValidationRule;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use App\Models\Service;
 
 new class extends Component {
     use WithPagination;
@@ -59,6 +60,7 @@ new class extends Component {
 
         return [
             'users' => $query->latest()->paginate(10),
+            'servicesGrouped' => Service::getGroupedByCategory(),
         ];
     }
 
@@ -757,10 +759,10 @@ new class extends Component {
                                                                 <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Specialty *</label>
                                                                 <select wire:model.defer="skillsets.{{ $i }}.name" class="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                                                                     <option value="">Select specialty...</option>
-                                                                    @foreach(\App\Enums\TechnicianSkill::getGrouped() as $category => $skills)
+                                                                    @foreach($servicesGrouped as $category => $services)
                                                                         <optgroup label="{{ $category }}">
-                                                                            @foreach($skills as $skill)
-                                                                                <option value="{{ $skill->value }}">{{ $skill->value }}</option>
+                                                                            @foreach($services as $service)
+                                                                                <option value="{{ $service->name }}">{{ $service->name }}</option>
                                                                             @endforeach
                                                                         </optgroup>
                                                                     @endforeach
