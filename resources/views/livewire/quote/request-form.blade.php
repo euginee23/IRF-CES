@@ -307,7 +307,7 @@ new class extends Component {
                                    id="newImages" 
                                    wire:model="newImages" 
                                    multiple 
-                                   accept="image/*"
+                                   accept="image/*,.heic,.heif,.webp"
                                    class="hidden" 
                                    wire:key="upload-{{ $uploadIteration }}" />
                             
