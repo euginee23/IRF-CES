@@ -358,6 +358,42 @@
 
         <!-- Footer -->
         <x-footer />
+
+        <!-- Scroll to Top Button -->
+        <div x-data="{ show: false, isHovered: false }" 
+             @scroll.window="show = window.pageYOffset > 300"
+             x-cloak>
+            <button 
+                @click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+                @mouseenter="isHovered = true"
+                @mouseleave="isHovered = false"
+                x-show="show"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 scale-50"
+                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 scale-50"
+                class="fixed bottom-8 right-8 z-50 group cursor-pointer"
+                aria-label="Scroll to top">
+                <div class="relative">
+                    <!-- Animated border gradient -->
+                    <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-xl blur opacity-40 group-hover:opacity-70 transition-all duration-300 animate-pulse"></div>
+                    <!-- Button -->
+                    <div class="relative w-14 h-14 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 dark:from-blue-500 dark:via-blue-600 dark:to-indigo-600 rounded-xl shadow-2xl hover:shadow-blue-500/50 dark:hover:shadow-blue-400/50 flex flex-col items-center justify-center transition-all duration-300 transform group-hover:-translate-y-1 active:scale-95 border-2 border-white/20 dark:border-white/10">
+                        <!-- Arrow icon -->
+                        <svg :class="isHovered ? '-translate-y-0.5' : ''" class="w-5 h-5 text-white transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/>
+                        </svg>
+                        <!-- Text label -->
+                        <span class="text-[10px] font-bold text-white/90 mt-0.5 tracking-wider uppercase">Top</span>
+                        <!-- Ripple effect on click -->
+                        <div class="absolute inset-0 rounded-xl opacity-0 group-active:opacity-30 bg-white transition-opacity duration-150"></div>
+                    </div>
+                </div>
+            </button>
+        </div>
+
         <script>
             document.addEventListener('click', function (e) {
                 const anchor = e.target.closest('a[href^="#"]');

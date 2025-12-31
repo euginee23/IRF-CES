@@ -287,31 +287,31 @@ new class extends Component {
                         Upload Photos (Optional)
                     </label>
                     
-                    <!-- Drag and Drop Zone (clickable + keyboard accessible) -->
-                    <div 
-                        x-data="{ isDragging: false }" 
-                        @dragover.prevent="isDragging = true"
-                        @dragleave.prevent="isDragging = false"
-                        @drop.prevent="
-                            isDragging = false;
-                            let dt = $event.dataTransfer;
-                            let input = document.getElementById('newImages');
-                            input.files = dt.files;
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
-                        "
-                        :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-zinc-300 dark:border-zinc-700'"
-                        class="relative border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200">
+                    <!-- Drag and Drop Zone -->
+                    <label for="newImages" class="block">
+                        <div 
+                            x-data="{ isDragging: false }" 
+                            @dragover.prevent="isDragging = true"
+                            @dragleave.prevent="isDragging = false"
+                            @drop.prevent="
+                                isDragging = false;
+                                let dt = $event.dataTransfer;
+                                let input = document.getElementById('newImages');
+                                input.files = dt.files;
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                            "
+                            :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-zinc-300 dark:border-zinc-700'"
+                            class="cursor-pointer border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200 hover:border-blue-400 dark:hover:border-blue-500">
 
-                        <input type="file" 
-                               id="newImages" 
-                               wire:model="newImages" 
-                               multiple 
-                               accept="image/*" 
-                               capture="environment"
-                               class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                               wire:key="upload-{{ $uploadIteration }}" />
-                        
-                        <div wire:loading.remove wire:target="newImages" class="space-y-3 pointer-events-none">
+                            <input type="file" 
+                                   id="newImages" 
+                                   wire:model="newImages" 
+                                   multiple 
+                                   accept="image/*"
+                                   class="hidden" 
+                                   wire:key="upload-{{ $uploadIteration }}" />
+                            
+                            <div wire:loading.remove wire:target="newImages" class="space-y-3">
                             <svg class="w-12 h-12 mx-auto text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                             </svg>
@@ -333,7 +333,8 @@ new class extends Component {
                             </svg>
                             <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Uploading...</p>
                         </div>
-                    </div>
+                        </div>
+                    </label>
                     
                     @error('images') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                     @error('images.*') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
