@@ -29,6 +29,9 @@ class JobOrder extends Model
         'final_cost',
         'completed_at',
         'delivered_at',
+        'portal_token',
+        'approved_by_customer_at',
+        'approval_method',
     ];
 
     protected $casts = [
@@ -37,6 +40,7 @@ class JobOrder extends Model
         'expected_completion_date' => 'date',
         'completed_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'approved_by_customer_at' => 'datetime',
         'status' => JobOrderStatus::class,
         'issues' => 'array',
         'parts_needed' => 'array',
@@ -70,6 +74,11 @@ class JobOrder extends Model
                 }
 
                 $jobOrder->job_order_number = $candidate;
+            }
+            
+            // Generate unique portal token
+            if (empty($jobOrder->portal_token)) {
+                $jobOrder->portal_token = bin2hex(random_bytes(32));
             }
         });
     }
@@ -112,5 +121,44 @@ class JobOrder extends Model
     public function canBeEdited(): bool
     {
         return !in_array($this->status, [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED, JobOrderStatus::CANCELLED]);
+    }
+    
+    /**
+     * Get the customer portal URL.
+     */
+    public function getPortalUrlAttribute(): string
+    {
+        return route('customer.portal.view', ['token' => $this->portal_token]);
+    }
+    
+    /**
+     * Mark as approved by customer.
+     */
+    public function approveByCustomer(): void
+    {
+        $this->update([
+            'status' => JobOrderStatus::APPROVED,
+            'approved_by_customer_at' => now(),
+            'approval_method' => 'customer',
+        ]);
+    }
+    
+    /**
+     * Mark as manually approved.
+     */
+    public function approveManually(): void
+    {
+        $this->update([
+            'status' => JobOrderStatus::APPROVED,
+            'approval_method' => 'manual',
+        ]);
+    }
+    
+    /**
+     * Check if approved by customer.
+     */
+    public function isApprovedByCustomer(): bool
+    {
+        return $this->approval_method === 'customer';
     }
 }

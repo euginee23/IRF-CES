@@ -80,6 +80,58 @@ new class extends Component {
         }, 'job-order-' . $jobOrder->job_order_number . '.pdf');
     }
 
+    public function sendQuoteApproval(int $id): void
+    {
+        $jobOrder = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
+        
+        if (!$jobOrder->customer_email) {
+            $this->dispatch('error', message: 'Customer email is not available.');
+            return;
+        }
+        
+        // Calculate costs
+        $partsTotal = 0.0;
+        foreach($jobOrder->parts_needed ?? [] as $p) {
+            $qty = isset($p['quantity']) ? (int)$p['quantity'] : 1;
+            $price = isset($p['unit_sale_price']) ? (float)$p['unit_sale_price'] : 0.0;
+            $partsTotal += $qty * $price;
+        }
+        
+        $laborTotal = 0.0;
+        if(!empty($jobOrder->issues) && is_array($jobOrder->issues)) {
+            foreach($jobOrder->issues as $issue) {
+                if (!empty($issue['type'])) {
+                    $svc = \App\Models\Service::where('name', $issue['type'])->first();
+                    if ($svc) $laborTotal += (float)$svc->labor_price;
+                }
+            }
+        }
+        
+        $estimatedTotal = $partsTotal + $laborTotal;
+        
+        // Send email
+        try {
+            \Illuminate\Support\Facades\Mail::to($jobOrder->customer_email)
+                ->send(new \App\Mail\QuoteApprovalMail($jobOrder, $partsTotal, $laborTotal, $estimatedTotal));
+            
+            // Update status to awaiting approval
+            $jobOrder->update(['status' => \App\Enums\JobOrderStatus::AWAITING_APPROVAL]);
+            
+            $this->dispatch('success', message: 'Quote approval email sent successfully to ' . $jobOrder->customer_email);
+        } catch (\Exception $e) {
+            $this->dispatch('error', message: 'Failed to send email: ' . $e->getMessage());
+        }
+    }
+
+    public function manualApproval(int $id): void
+    {
+        $jobOrder = JobOrder::findOrFail($id);
+        
+        $jobOrder->approveManually();
+        
+        $this->dispatch('success', message: 'Job order manually approved successfully.');
+    }
+
     public function layout()
     {
         return 'components.layouts.app';
@@ -115,6 +167,8 @@ new class extends Component {
             'stats' => [
                 'total' => JobOrder::count(),
                 'pending' => JobOrder::where('status', JobOrderStatus::PENDING)->count(),
+                'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
+                'approved' => JobOrder::where('status', JobOrderStatus::APPROVED)->count(),
                 'in_progress' => JobOrder::where('status', JobOrderStatus::IN_PROGRESS)->count(),
                 'completed' => JobOrder::where('status', JobOrderStatus::COMPLETED)->count(),
             ],
@@ -157,7 +211,7 @@ new class extends Component {
         </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
             <!-- Total Orders Card -->
             <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                 <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -213,6 +267,46 @@ new class extends Component {
                         <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">In Progress</p>
                         <p class="text-4xl font-bold text-blue-600 dark:text-blue-400">{{ $stats['in_progress'] }}</p>
                         <p class="text-xs text-zinc-400 dark:text-zinc-500">being repaired</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Awaiting Approval Card -->
+            <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative p-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="p-3 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-md">
+                            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <span class="px-3 py-1 text-xs font-semibold text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/30 rounded-full">Waiting</span>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Awaiting Approval</p>
+                        <p class="text-4xl font-bold text-yellow-600 dark:text-yellow-400">{{ $stats['awaiting_approval'] }}</p>
+                        <p class="text-xs text-zinc-400 dark:text-zinc-500">quote sent</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approved Card -->
+            <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative p-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-md">
+                            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <span class="px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/30 rounded-full">Approved</span>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Approved</p>
+                        <p class="text-4xl font-bold text-emerald-600 dark:text-emerald-400">{{ $stats['approved'] }}</p>
+                        <p class="text-xs text-zinc-400 dark:text-zinc-500">ready to start</p>
                     </div>
                 </div>
             </div>
@@ -281,6 +375,8 @@ new class extends Component {
                             <option value="">All Statuses</option>
                             <option value="pending">Pending</option>
                             <option value="assigned">Assigned</option>
+                            <option value="awaiting_approval">Awaiting Approval</option>
+                            <option value="approved">Approved</option>
                             <option value="in_progress">In Progress</option>
                             <option value="completed">Completed</option>
                             <option value="delivered">Delivered</option>
@@ -396,6 +492,8 @@ new class extends Component {
                                             $statusColors = [
                                                 'pending' => 'amber',
                                                 'assigned' => 'blue',
+                                                'awaiting_approval' => 'yellow',
+                                                'approved' => 'emerald',
                                                 'in_progress' => 'indigo',
                                                 'completed' => 'green',
                                                 'delivered' => 'teal',
@@ -482,32 +580,40 @@ new class extends Component {
     <x-delete-confirmation />
 
     <!-- View Job Order Modal -->
-    @if($showViewModal && $selectedJobOrder)
-        <div x-data="{ show: @entangle('showViewModal') }" 
-             x-show="show" 
-             x-cloak
-             class="fixed inset-0 z-50 overflow-y-auto"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0">
-            
+        <div
+            x-data="{ show: @entangle('showViewModal').live }"
+            x-show="show"
+            x-cloak
+            x-on:keydown.escape.window="show = false"
+            class="fixed inset-0 z-50 overflow-y-auto"
+            style="display: none;">
+
             <!-- Backdrop -->
-            <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" wire:click="closeViewModal"></div>
-            
+            <div
+                x-show="show"
+                x-transition:enter="ease-out duration-300"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="ease-in duration-200"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+                x-on:click="$wire.closeViewModal()"></div>
+
             <!-- Modal Container -->
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden"
-                     x-transition:enter="transition ease-out duration-300 transform"
-                     x-transition:enter-start="opacity-0 scale-95"
-                     x-transition:enter-end="opacity-100 scale-100"
-                     x-transition:leave="transition ease-in duration-200 transform"
-                     x-transition:leave-start="opacity-100 scale-100"
-                     x-transition:leave-end="opacity-0 scale-95"
-                     @click.stop>
-                    
+                <div
+                    x-show="show"
+                    x-transition:enter="ease-out duration-300"
+                    x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                    x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                    x-transition:leave="ease-in duration-200"
+                    x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                    x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden"
+                    x-on:click.stop>
+
+                    @if($selectedJobOrder)
                     <!-- Modal Header -->
                     <div class="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 border-b border-indigo-700">
                         <div class="flex items-center justify-between">
@@ -520,9 +626,13 @@ new class extends Component {
                                 <div>
                                     <h3 class="text-xl font-bold text-white">Job Order Details</h3>
                                     <p class="text-sm text-indigo-100">{{ $selectedJobOrder->job_order_number }}</p>
+                                    @php
+                                        $debug_showSend = in_array($selectedJobOrder->status->value, ['pending', 'assigned']);
+                                        $debug_showApprove = in_array($selectedJobOrder->status->value, ['awaiting_approval', 'assigned', 'pending']);
+                                    @endphp
                                 </div>
                             </div>
-                            <button wire:click="closeViewModal" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                            <button wire:click="closeViewModal" class="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
                                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
@@ -543,6 +653,8 @@ new class extends Component {
                                         $statusColors = [
                                             'pending' => 'amber',
                                             'assigned' => 'blue',
+                                            'awaiting_approval' => 'yellow',
+                                            'approved' => 'emerald',
                                             'in_progress' => 'indigo',
                                             'completed' => 'green',
                                             'delivered' => 'teal',
@@ -918,15 +1030,57 @@ new class extends Component {
 
                     <!-- Modal Footer -->
                     <div class="sticky bottom-0 z-50 bg-zinc-50 dark:bg-zinc-800 px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
-                        <div class="flex items-center justify-end">
-                            <button wire:click="closeViewModal" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all">
+                        <div class="flex items-center justify-end gap-2">
+                            @php
+                                $showSend = in_array($selectedJobOrder->status->value, ['pending', 'assigned', 'awaiting_approval']);
+                                $sendLabel = $selectedJobOrder->status->value === 'awaiting_approval' ? 'Send Quote' : 'Resend Quote';
+                            @endphp
+                            @if($showSend)
+                                <button 
+                                    wire:click="sendQuoteApproval({{ $selectedJobOrder->id }})"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 cursor-pointer"
+                                    title="{{ $sendLabel }}"
+                                    x-transition:enter="transition ease-out duration-200"
+                                    x-transition:enter-start="opacity-0 scale-95"
+                                    x-transition:enter-end="opacity-100 scale-100">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                    </svg>
+                                    {{ $sendLabel }}
+                                </button>
+                            @endif
+                            
+                            @if(in_array($selectedJobOrder->status->value, ['awaiting_approval', 'assigned', 'pending']))
+                                <button 
+                                    wire:click="manualApproval({{ $selectedJobOrder->id }})"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 cursor-pointer"
+                                    title="Manually approve this job order"
+                                    x-transition:enter="transition ease-out duration-200"
+                                    x-transition:enter-start="opacity-0 scale-95"
+                                    x-transition:enter-end="opacity-100 scale-100">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    Approve
+                                </button>
+                            @endif
+                            
+                            <button 
+                                wire:click="closeViewModal" 
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-zinc-600 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+                                x-transition:enter="transition ease-out duration-200"
+                                x-transition:enter-start="opacity-0 scale-95"
+                                x-transition:enter-end="opacity-100 scale-100">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
                                 Close
                             </button>
                         </div>
                     </div>
 
+                    @endif
                 </div>
             </div>
         </div>
-    @endif
 </div>

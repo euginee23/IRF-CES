@@ -17,6 +17,8 @@
         <x-notification-toast />
         <x-delete-confirmation />
 
+        <x-footer />
+
         @stack('scripts')
     </body>
 </html>

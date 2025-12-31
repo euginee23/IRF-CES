@@ -186,7 +186,7 @@ new class extends Component {
 <div class="w-full" id="quote-form">
     @if($submitted)
         <!-- Success Message -->
-        <div class="max-w-2xl mx-auto bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 p-8 text-center">
+        <div class="max-w-2xl mx-auto bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-700 p-6 text-center">
             <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -202,24 +202,24 @@ new class extends Component {
         </div>
     @else
         <!-- Quote Request Form -->
-        <div class="max-w-3xl mx-auto bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+        <div class="max-w-2xl mx-auto bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
             <!-- Header -->
-            <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 px-8 py-6 border-b border-zinc-200 dark:border-zinc-700">
+            <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 px-4 sm:px-6 py-3 sm:py-4 border-b border-zinc-200 dark:border-zinc-700">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="w-12 h-12 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>
                     </div>
-                    <div>
-                        <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">Request Repair Quote</h2>
-                        <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">Get a free estimate for your device repair</p>
+                    <div class="min-w-0">
+                        <h2 class="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-white leading-tight truncate">Request Repair Quote</h2>
+                        <p class="text-sm sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1 truncate">Get a free estimate for your device repair</p>
                     </div>
                 </div>
             </div>
 
             <!-- Form -->
-            <form wire:submit="submit" class="p-8 space-y-6">
+            <form wire:submit="submit" class="p-4 sm:p-6 space-y-4">
                 <!-- Contact Information -->
                 <div>
                     <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
@@ -234,7 +234,7 @@ new class extends Component {
                                 Full Name <span class="text-red-500">*</span>
                             </label>
                             <input type="text" id="name" wire:model="name" required
-                                class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                class="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                 placeholder="John Doe" />
                             @error('name') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                         </div>
@@ -244,7 +244,7 @@ new class extends Component {
                                 Phone Number
                             </label>
                             <input type="tel" id="phone" wire:model="phone"
-                                class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                class="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                 placeholder="+1 (555) 000-0000" />
                             @error('phone') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                         </div>
@@ -255,7 +255,7 @@ new class extends Component {
                             Email Address <span class="text-red-500">*</span>
                         </label>
                         <input type="email" id="email" wire:model="email" required
-                            class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            class="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                             placeholder="john@example.com" />
                         @error('email') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                     </div>
@@ -275,7 +275,7 @@ new class extends Component {
                                 Manufacturer <span class="text-red-500">*</span>
                             </label>
                             <select id="manufacturer" wire:model="manufacturer" required
-                                class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer">
+                                class="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer text-sm">
                                 <option value="">Select manufacturer</option>
                                 @foreach($this->manufacturers() as $mfr)
                                     <option value="{{ $mfr }}">{{ $mfr }}</option>
@@ -289,7 +289,7 @@ new class extends Component {
                                 Model <span class="text-red-500">*</span>
                             </label>
                             <input type="text" id="model" wire:model="model" required
-                                class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                class="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                 placeholder="e.g., iPhone 13 Pro, Galaxy S21" />
                             @error('model') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                         </div>
@@ -301,8 +301,8 @@ new class extends Component {
                     <label for="issue_description" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                         Describe the Issue <span class="text-red-500">*</span>
                     </label>
-                    <textarea id="issue_description" wire:model="issue_description" required rows="5"
-                        class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                    <textarea id="issue_description" wire:model="issue_description" required rows="4"
+                        class="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-sm"
                         placeholder="Please describe the issue with your device in detail. For example: 'Screen is cracked in the top-right corner after dropping the phone...'"></textarea>
                     @error('issue_description') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                     <p class="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">Minimum 10 characters required</p>
@@ -333,7 +333,7 @@ new class extends Component {
                         role="button"
                         tabindex="0"
                         aria-label="Upload images - click or drag and drop"
-                        class="cursor-pointer border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200">
+                        class="cursor-pointer border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200">
 
                         <input type="file" 
                                id="newImages" 
@@ -344,7 +344,7 @@ new class extends Component {
                                wire:key="upload-{{ $uploadIteration }}" />
                         
                         <div wire:loading.remove wire:target="newImages" class="space-y-3">
-                            <svg class="w-16 h-16 mx-auto text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-12 h-12 mx-auto text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                             </svg>
                             <div>
@@ -352,14 +352,14 @@ new class extends Component {
                                     <span class="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">Click to upload</span>
                                     <span class="text-sm text-zinc-600 dark:text-zinc-400"> or drag and drop</span>
                                 </label>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">PNG, JPG, JPEG, GIF up to 15MB each</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">PNG, JPG, JPEG up to 15MB each</p>
                                 <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ count($images) }} image(s) uploaded</p>
                             </div>
                         </div>
                         
                         <!-- Loading State -->
                         <div wire:loading wire:target="newImages" class="space-y-3">
-                            <svg class="animate-spin w-12 h-12 mx-auto text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <svg class="animate-spin w-10 h-10 mx-auto text-blue-600" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -372,7 +372,7 @@ new class extends Component {
                     
                     <!-- Image Previews -->
                     @if (!empty($images))
-                        <div class="mt-6 space-y-3">
+                        <div class="mt-4 space-y-3">
                             <div class="flex items-center justify-between">
                                 <h4 class="text-sm font-semibold text-zinc-900 dark:text-white">Uploaded Images ({{ count($images) }})</h4>
                                 @if(count($images) > 0)

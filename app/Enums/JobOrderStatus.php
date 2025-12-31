@@ -6,6 +6,8 @@ enum JobOrderStatus: string
 {
     case PENDING = 'pending';
     case ASSIGNED = 'assigned';
+    case AWAITING_APPROVAL = 'awaiting_approval';
+    case APPROVED = 'approved';
     case IN_PROGRESS = 'in_progress';
     case COMPLETED = 'completed';
     case DELIVERED = 'delivered';
@@ -16,6 +18,8 @@ enum JobOrderStatus: string
         return match($this) {
             self::PENDING => 'Pending',
             self::ASSIGNED => 'Assigned',
+            self::AWAITING_APPROVAL => 'Awaiting Approval',
+            self::APPROVED => 'Approved',
             self::IN_PROGRESS => 'In Progress',
             self::COMPLETED => 'Completed',
             self::DELIVERED => 'Delivered',
@@ -28,6 +32,8 @@ enum JobOrderStatus: string
         return match($this) {
             self::PENDING => 'amber',
             self::ASSIGNED => 'blue',
+            self::AWAITING_APPROVAL => 'yellow',
+            self::APPROVED => 'emerald',
             self::IN_PROGRESS => 'indigo',
             self::COMPLETED => 'green',
             self::DELIVERED => 'teal',

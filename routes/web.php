@@ -9,6 +9,16 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+// Customer Portal routes (public, no auth required)
+Route::prefix('portal')->name('customer.portal.')->group(function () {
+    Route::get('/', function () {
+        return view('welcome');
+    })->name('index');
+    Route::post('/lookup', [App\Http\Controllers\CustomerPortalController::class, 'lookup'])->name('lookup');
+    Route::get('/view/{token}', [App\Http\Controllers\CustomerPortalController::class, 'view'])->name('view');
+    Route::post('/approve/{token}', [App\Http\Controllers\CustomerPortalController::class, 'approve'])->name('approve');
+});
+
 // Redirect to role-specific dashboard after login
 Route::get('dashboard', function () {
     $user = auth()->user();
