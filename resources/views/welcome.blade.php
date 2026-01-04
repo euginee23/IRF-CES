@@ -210,134 +210,14 @@
         <section id="track-repair" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-zinc-900 dark:via-indigo-950 dark:to-zinc-900">
             <div class="max-w-4xl mx-auto">
                 <div class="text-center mb-8">
-                    <div class="inline-flex p-3 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl mb-4">
-                        <svg class="w-10 h-10 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                    </div>
-                    <h2 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-3">
                         Track Your Repair
                     </h2>
                     <p class="text-base sm:text-lg text-zinc-600 dark:text-zinc-300 max-w-2xl mx-auto">
                         Enter your job order number below to view your repair status, quote details, and approve your repair.
                     </p>
                 </div>
-
-                <!-- Alert Messages -->
-                @if(session('success'))
-                    <div class="mb-4 p-3 sm:p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
-                        <div class="flex items-start gap-3">
-                            <svg class="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>
-                            <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ session('success') }}</p>
-                        </div>
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="mb-4 p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-                        <div class="flex items-start gap-3">
-                            <svg class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                            <p class="text-sm font-medium text-red-800 dark:text-red-200">{{ session('error') }}</p>
-                        </div>
-                    </div>
-                @endif
-
-                <!-- Lookup Form -->
-                <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3">
-                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            Enter Job Order Number
-                        </h3>
-                    </div>
-                    
-                    <div class="p-4 sm:p-6">
-                        <form action="{{ route('customer.portal.lookup') }}" method="POST" class="space-y-4">
-                            @csrf
-                            
-                            <div>
-                                <label for="job_order_number" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
-                                    Job Order Number
-                                </label>
-                                <input 
-                                    type="text" 
-                                    id="job_order_number" 
-                                    name="job_order_number"
-                                    placeholder="e.g., JO-20251231-0001"
-                                    required
-                                    class="w-full px-4 py-2.5 text-base border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
-                                    value="{{ old('job_order_number') }}"
-                                />
-                                @error('job_order_number')
-                                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <button 
-                                type="submit"
-                                class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-base font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                                </svg>
-                                Track My Repair
-                            </button>
-                        </form>
-
-                        <!-- Help Text -->
-                        <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                            <div class="flex items-start gap-3">
-                                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                <div>
-                                    <p class="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Where to find your job order number?</p>
-                                    <p class="text-sm text-blue-700 dark:text-blue-300">
-                                        Your job order number can be found on the receipt you received when you dropped off your device, or in the email we sent you.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Features -->
-                <div class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 p-4">
-                        <div class="inline-flex p-3 bg-green-100 dark:bg-green-900/30 rounded-lg mb-4">
-                            <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-2">Real-Time Status</h3>
-                        <p class="text-sm text-zinc-600 dark:text-zinc-400">Track your repair progress in real-time from submission to completion.</p>
-                    </div>
-
-                    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-700 p-6">
-                        <div class="inline-flex p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg mb-4">
-                            <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-2">Detailed Quote</h3>
-                        <p class="text-sm text-zinc-600 dark:text-zinc-400">View itemized repair costs including parts and labor.</p>
-                    </div>
-
-                    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-700 p-6">
-                        <div class="inline-flex p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg mb-4">
-                            <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-2">Quick Approval</h3>
-                        <p class="text-sm text-zinc-600 dark:text-zinc-400">Approve your repair quote online with one click.</p>
-                    </div>
-                </div>
+                @include('customer-portal.lookup-form')
             </div>
         </section>
 

@@ -12,9 +12,9 @@ class CustomerPortalController extends Controller
     /**
      * Show the customer portal landing page.
      */
-    public function index(): View
+    public function index(): RedirectResponse
     {
-        return view('customer-portal.index');
+        return redirect()->route('welcome')->withFragment('track-repair');
     }
     
     /**

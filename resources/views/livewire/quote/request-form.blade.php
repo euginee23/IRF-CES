@@ -4,6 +4,10 @@ use App\Models\RepairQuoteRequest;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use Intervention\Image\ImageManagerStatic as Image;
 
 new class extends Component {
     use WithFileUploads;
@@ -31,30 +35,63 @@ new class extends Component {
     public int $uploadIteration = 0;
 
     public bool $submitted = false;
+    public string $recaptcha = '';
     
     protected function rules(): array
     {
         return [
             'images' => 'nullable|array',
-            'images.*' => 'image|max:15360', // 15MB max per image
-            'newImages.*' => 'image|max:15360',
+            // Only accept PNG/JPEG and limit to 15MB per file
+            'images.*' => 'nullable|file|mimes:jpg,jpeg,png,heic,heif|max:15360', // 15MB max per image
+            'newImages' => 'nullable|array',
+            'newImages.*' => 'nullable|file|mimes:jpg,jpeg,png,heic,heif|max:15360',
+            'recaptcha' => 'required|string',
         ];
     }
     
     public function updatedNewImages()
     {
-        $this->validate([
-            'newImages.*' => 'image|max:15360',
-        ]);
-        
-        // Merge new images with existing ones
-        foreach ($this->newImages as $image) {
-            $this->images[] = $image;
+        // Validate files client-side (type + size) and only accept png/jpg/jpeg up to 15MB.
+        $maxBytes = 15 * 1024 * 1024;
+        $allowedExt = ['jpg', 'jpeg', 'png'];
+        $collectedErrors = [];
+
+        if (!empty($this->newImages)) {
+            foreach ($this->newImages as $image) {
+                try {
+                    $name = method_exists($image, 'getClientOriginalName') ? $image->getClientOriginalName() : (method_exists($image, 'getFilename') ? $image->getFilename() : 'file');
+                    $size = method_exists($image, 'getSize') ? $image->getSize() : null;
+                    $ext = '';
+                    if (method_exists($image, 'getClientOriginalExtension')) {
+                        $ext = strtolower($image->getClientOriginalExtension());
+                    } else {
+                        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                    }
+
+                    if (!in_array($ext, $allowedExt)) {
+                        $collectedErrors[] = "{$name}: invalid file type (only PNG/JPEG allowed).";
+                        continue;
+                    }
+
+                    if ($size !== null && $size > $maxBytes) {
+                        $collectedErrors[] = "{$name}: file too large (max 15MB).";
+                        continue;
+                    }
+
+                    $this->images[] = $image;
+                } catch (\Throwable $e) {
+                    $collectedErrors[] = (isset($name) ? $name : 'file') . ': upload failed';
+                }
+            }
         }
-        
-        // Reset newImages and increment iteration
+
+        // Reset newImages and increment iteration to refresh input key
         $this->newImages = [];
         $this->uploadIteration++;
+
+        if (!empty($collectedErrors)) {
+            $this->addError('newImages', implode(' ', $collectedErrors));
+        }
     }
 
     // Comprehensive phone manufacturers (sorted alphabetically with popular brands first)
@@ -112,6 +149,29 @@ new class extends Component {
     {
         $this->validate();
 
+        // Verify reCAPTCHA v2 server-side
+        $secret = config('services.recaptcha.secret_key');
+        if (empty($this->recaptcha) || empty($secret)) {
+            $this->addError('recaptcha', 'reCAPTCHA verification is required.');
+            return;
+        }
+
+        try {
+            $resp = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+                'secret' => $secret,
+                'response' => $this->recaptcha,
+                'remoteip' => request()->ip(),
+            ]);
+        } catch (\Throwable $e) {
+            $this->addError('recaptcha', 'Failed to verify reCAPTCHA. Please try again.');
+            return;
+        }
+
+        if (! $resp->successful() || ! ($resp->json('success') ?? false)) {
+            $this->addError('recaptcha', 'reCAPTCHA verification failed. Please try again.');
+            return;
+        }
+
         // Validate max number of images
         if (count($this->images) > 5) {
             $this->addError('images', 'You can upload a maximum of 5 images.');
@@ -121,8 +181,61 @@ new class extends Component {
         $imagePaths = [];
         if (!empty($this->images)) {
             foreach ($this->images as $image) {
-                if ($image) {
+                if (! $image) {
+                    continue;
+                }
+
+                // Detect mime type robustly
+                $mime = null;
+                if (method_exists($image, 'getClientMimeType')) {
+                    $mime = $image->getClientMimeType();
+                } elseif (method_exists($image, 'getMimeType')) {
+                    $mime = $image->getMimeType();
+                }
+
+                // Handle HEIC/HEIF conversion to JPEG when possible
+                if (in_array(strtolower($mime), ['image/heic', 'image/heif'])) {
+                    // Prefer Imagick if available
+                    if (extension_loaded('imagick')) {
+                        try {
+                            $imagick = new \Imagick($image->getRealPath());
+                            $imagick->setImageFormat('jpeg');
+                            $imagick->setImageCompressionQuality(85);
+                            $blob = $imagick->getImageBlob();
+                            $filename = 'repair-quotes/' . Str::random(40) . '.jpg';
+                            Storage::disk('public')->put($filename, $blob);
+                            $imagePaths[] = $filename;
+                            continue;
+                        } catch (\Throwable $e) {
+                            $this->addError('images', 'Failed to convert HEIC to JPEG: ' . $e->getMessage());
+                            continue;
+                        }
+                    }
+
+                    // Fallback to Intervention Image if installed
+                    if (class_exists('\\Intervention\\Image\\ImageManagerStatic')) {
+                        try {
+                            $jpg = Image::make($image->getRealPath())->encode('jpg', 85);
+                            $filename = 'repair-quotes/' . Str::random(40) . '.jpg';
+                            Storage::disk('public')->put($filename, (string) $jpg);
+                            $imagePaths[] = $filename;
+                            continue;
+                        } catch (\Throwable $e) {
+                            $this->addError('images', 'Failed to convert HEIC to JPEG: ' . $e->getMessage());
+                            continue;
+                        }
+                    }
+
+                    // If neither conversion path is available, show a clear error
+                    $this->addError('images', 'HEIC/HEIF images are not supported by the server. Install the PHP Imagick extension or the intervention/image package to enable conversion.');
+                    continue;
+                }
+
+                // For supported non-HEIC types just store normally
+                try {
                     $imagePaths[] = $image->store('repair-quotes', 'public');
+                } catch (\Throwable $e) {
+                    $this->addError('images', 'Failed to store image: ' . $e->getMessage());
                 }
             }
         }
@@ -139,13 +252,21 @@ new class extends Component {
         ]);
 
         $this->submitted = true;
+        $this->recaptcha = '';
+        $this->dispatch('recaptcha-reset');
         $this->reset(['name', 'email', 'phone', 'manufacturer', 'model', 'issue_description', 'images']);
+    }
+
+    #[\Livewire\Attributes\On('recaptchaVerified')]
+    public function handleRecaptcha($token = ''): void
+    {
+        $this->recaptcha = $token ?? '';
     }
 
     public function removeImage(int $index): void
     {
         array_splice($this->images, $index, 1);
-        $this->images = array_values($this->images); // Re-index array
+        $this->images = array_values($this->images);
         $this->uploadIteration++;
     }
 
@@ -169,7 +290,7 @@ new class extends Component {
             <p class="text-zinc-600 dark:text-zinc-400 mb-6">
                 Thank you for your repair quote request. We'll review your device details and get back to you with a quote within 24 hours.
             </p>
-            <button wire:click="resetForm" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+            <button wire:click="resetForm" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors cursor-pointer shadow-md hover:shadow-lg">
                 Submit Another Request
             </button>
         </div>
@@ -304,12 +425,12 @@ new class extends Component {
                             class="cursor-pointer border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200 hover:border-blue-400 dark:hover:border-blue-500">
 
                             <input type="file" 
-                                   id="newImages" 
-                                   wire:model="newImages" 
-                                   multiple 
-                                   accept="image/*,.heic,.heif,.webp"
-                                   class="hidden" 
-                                   wire:key="upload-{{ $uploadIteration }}" />
+                                id="newImages" 
+                                wire:model="newImages" 
+                                multiple 
+                                accept="image/*,.jpg,.jpeg,.png,.heic,.heif,.webp"
+                                class="hidden" 
+                                wire:key="upload-{{ $uploadIteration }}" />
                             
                             <div wire:loading.remove wire:target="newImages" class="space-y-3">
                             <svg class="w-12 h-12 mx-auto text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -375,8 +496,174 @@ new class extends Component {
                 </div>
 
                 <!-- Submit Button -->
+                <!-- Livewire upload status (progress / errors) -->
+                <div id="livewire-upload-status" class="mb-3 text-sm text-zinc-600 dark:text-zinc-400" style="display:none"></div>
+
+                <!-- Show upload/validation errors above the submit button -->
+                @if($errors->has('images') || $errors->has('images.*') || $errors->has('newImages') || $errors->has('newImages.*') || $errors->any())
+                    <div class="mb-3 text-sm text-red-600 dark:text-red-400">
+                        {{ $errors->first('images.*') ?? $errors->first('images') ?? $errors->first('newImages.*') ?? $errors->first('newImages') ?? $errors->first() }}
+                    </div>
+                @endif
+
+                <script>
+                    (function(){
+                        const statusEl = () => document.getElementById('livewire-upload-status');
+
+                        window.addEventListener('livewire-upload-start', (e) => {
+                            const s = statusEl(); if(!s) return;
+                            s.style.display = 'block';
+                            s.className = 'mb-3 text-sm text-blue-600';
+                            s.textContent = 'Uploading ' + (e.detail && e.detail.name ? e.detail.name : '') + '...';
+                        });
+
+                        window.addEventListener('livewire-upload-progress', (e) => {
+                            const s = statusEl(); if(!s) return;
+                            s.style.display = 'block';
+                            s.className = 'mb-3 text-sm text-blue-600';
+                            const prog = e.detail && e.detail.progress ? e.detail.progress : 0;
+                            s.textContent = 'Uploading ' + (e.detail && e.detail.name ? e.detail.name + ': ' : '') + prog + '%';
+                        });
+
+                        window.addEventListener('livewire-upload-error', (e) => {
+                            const s = statusEl(); if(!s) return;
+                            s.style.display = 'block';
+                            s.className = 'mb-3 text-sm text-red-600';
+
+                            // Prefer explicit message when available
+                            let msg = '';
+                            if (e.detail && e.detail.message) {
+                                msg = e.detail.message;
+                            } else if (e.detail && e.detail.errors) {
+                                try {
+                                    msg = Object.values(e.detail.errors).flat().join(' ');
+                                } catch (err) {
+                                    msg = JSON.stringify(e.detail.errors);
+                                }
+                            } else if (e.detail && e.detail.statusText) {
+                                msg = (e.detail.status || '') + ' ' + e.detail.statusText;
+                            } else if (e.detail) {
+                                // Generic fallback: include raw payload for debugging
+                                msg = JSON.stringify(e.detail);
+                            }
+
+                            // Add helpful guidance for common upload problems
+                            const guidance = 'Allowed types: PNG, JPG, JPEG (HEIC converted) — max 15MB per file.';
+
+                            // Attempt to enumerate files from the input for richer context
+                            let fileInfo = '';
+                            try {
+                                const input = document.getElementById('newImages');
+                                if (input && input.files && input.files.length) {
+                                    const infos = Array.from(input.files).map(f => {
+                                        const sizeMB = (f.size / (1024*1024)).toFixed(2);
+                                        return `${f.name || '(no name)'} (${f.type || 'unknown'}, ${sizeMB} MB)`;
+                                    });
+                                    fileInfo = ' Files: ' + infos.join('; ');
+                                }
+                            } catch (err) {
+                                // ignore
+                            }
+
+                            s.textContent = 'Upload error: ' + (msg || 'Unknown error') + ' — ' + guidance + (fileInfo ? '\n' + fileInfo : '');
+
+                            // Also log full event to console for mobile debugging
+                            try { console.warn('livewire-upload-error', e.detail); } catch (err) {}
+                        });
+
+                        window.addEventListener('livewire-upload-finish', (e) => {
+                            const s = statusEl(); if(!s) return;
+                            s.style.display = 'block';
+                            s.className = 'mb-3 text-sm text-green-600';
+                            let info = '';
+                            try { info = e.detail ? (Array.isArray(e.detail) ? e.detail.map(d=>d.name).join(', ') : (e.detail.name||'')) : ''; } catch(err) { info = ''; }
+                            s.textContent = 'Upload finished ' + (info ? (': ' + info) : '');
+                            setTimeout(()=>{ s.style.display='none'; }, 4000);
+                        });
+                    })();
+                </script>
+                <!-- reCAPTCHA v2 widget -->
+                <div class="mt-4">
+                    <div wire:ignore>
+                        <div id="recaptcha-widget"></div>
+                    </div>
+                    @error('recaptcha') <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
+                    <script>
+                        window._RECAPTCHA_SITE_KEY = "{{ config('services.recaptcha.site_key') }}";
+
+                        window.recaptchaSuccess = function(token) {
+                            try {
+                                Livewire.dispatch('recaptchaVerified', token);
+                            } catch (e) { console.warn(e); }
+                        };
+
+                        window.recaptchaExpired = function() {
+                            try {
+                                Livewire.dispatch('recaptchaVerified', '');
+                            } catch (e) { console.warn(e); }
+                        };
+
+                        window.onRecaptchaLoad = function() {
+                            try { ensureRecaptchaRendered(); } catch (e) { console.warn('onRecaptchaLoad error', e); }
+                        };
+
+                        function ensureRecaptchaRendered() {
+                            try {
+                                var el = document.getElementById('recaptcha-widget');
+                                if (!el) return;
+                                // If already rendered, skip
+                                if (el.dataset.recaptchaRendered === '1') return;
+                                if (!window.grecaptcha) return;
+                                if (!window._RECAPTCHA_SITE_KEY) {
+                                    if (!window._rcWarned) {
+                                        console.warn('No reCAPTCHA site key available');
+                                        window._rcWarned = true;
+                                    }
+                                    // Stop retrying if there's no site key to avoid log spam
+                                    el.dataset.recaptchaRendered = '0';
+                                    return;
+                                }
+                                grecaptcha.render('recaptcha-widget', {
+                                    'sitekey': window._RECAPTCHA_SITE_KEY,
+                                    'callback': window.recaptchaSuccess,
+                                    'expired-callback': window.recaptchaExpired
+                                });
+                                el.dataset.recaptchaRendered = '1';
+                            } catch (e) { console.warn('recaptcha render error', e); }
+                        }
+
+                        // Try rendering on DOM ready and periodically until successful
+                        document.addEventListener('DOMContentLoaded', ensureRecaptchaRendered);
+                        var _rcInterval = setInterval(function(){
+                            ensureRecaptchaRendered();
+                            var el = document.getElementById('recaptcha-widget');
+                            if (el && el.dataset.recaptchaRendered === '1') clearInterval(_rcInterval);
+                            // If we detected missing site key and stopped, also clear interval
+                            if (window._rcWarned) clearInterval(_rcInterval);
+                        }, 500);
+
+                        // Re-attempt after Livewire updates
+                        window.addEventListener('livewire:load', function(){
+                            try {
+                                if (window.Livewire && Livewire.hook) {
+                                    Livewire.hook('message.processed', function() { ensureRecaptchaRendered(); });
+                                }
+                            } catch (e) {}
+                            ensureRecaptchaRendered();
+                        });
+
+                        window.addEventListener('recaptcha-reset', function(){
+                            try { if (window.grecaptcha) grecaptcha.reset(); } catch (e) {}
+                        });
+                    </script>
+                    @if(config('services.recaptcha.site_key'))
+                        <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
+                    @else
+                        <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">reCAPTCHA is not configured. Set `RECAPTCHA_SITE_KEY` in your .env to enable.</p>
+                    @endif
+                </div>
                 <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                    <button type="submit" wire:loading.attr="disabled"
+                    <button type="submit" wire:loading.attr="disabled" @if(!$recaptcha) disabled @endif
                         class="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer">
                         <span wire:loading.remove wire:target="submit">Submit Quote Request</span>
                         <span wire:loading wire:target="submit" class="flex items-center gap-2">
@@ -384,7 +671,6 @@ new class extends Component {
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Submitting...
                         </span>
                     </button>
                     <p class="mt-3 text-xs text-center text-zinc-500 dark:text-zinc-400">
