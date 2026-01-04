@@ -62,9 +62,9 @@
             </button>
         </form>
 
-        <!-- Compact Help Text -->
-        <div class="mt-4 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-md p-3">
-            <p class="font-medium text-blue-900 dark:text-blue-200 mb-1">Where to find your job order number?</p>
+        <!-- Compact Help Text (keep light styling even in dark mode) -->
+        <div class="mt-4 text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-md p-3">
+            <p class="font-medium text-blue-900 mb-1">Where to find your job order number?</p>
             <p class="leading-tight">On your drop-off receipt or in the confirmation email we sent.</p>
         </div>
     </div>

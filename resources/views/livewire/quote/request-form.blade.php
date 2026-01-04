@@ -339,7 +339,7 @@ new class extends Component {
                             </label>
                             <input type="tel" id="phone" wire:model="phone"
                                 class="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                                placeholder="+1 (555) 000-0000" />
+                                placeholder="+63 912 345 6789" />
                             @error('phone') <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                         </div>
                     </div>
@@ -579,6 +579,44 @@ new class extends Component {
                             try { info = e.detail ? (Array.isArray(e.detail) ? e.detail.map(d=>d.name).join(', ') : (e.detail.name||'')) : ''; } catch(err) { info = ''; }
                             s.textContent = 'Upload finished ' + (info ? (': ' + info) : '');
                             setTimeout(()=>{ s.style.display='none'; }, 4000);
+                        });
+                    })();
+                </script>
+                <script>
+                    // Auto-format phone input to Philippines format
+                    (function(){
+                        const el = document.getElementById('phone');
+                        if (!el) return;
+
+                        function formatPH(v){
+                            const digits = v.replace(/\D/g,'');
+                            let d = digits;
+                            if (d.startsWith('63')) d = d.slice(2);
+                            if (d.startsWith('0')) d = d.slice(1);
+                            // Build progressive groups: 3 / 3 / 4
+                            let out = '+63';
+                            if (d.length > 0) {
+                                if (d.length <= 3) out += ' ' + d;
+                                else if (d.length <= 6) out += ' ' + d.slice(0,3) + ' ' + d.slice(3);
+                                else out += ' ' + d.slice(0,3) + ' ' + d.slice(3,6) + ' ' + d.slice(6,10);
+                            }
+                            return out.trim();
+                        }
+
+                        // Sanitize input while typing (allow +, digits, spaces, parentheses and hyphens)
+                        el.addEventListener('input', function(){
+                            const cleaned = el.value.replace(/[^0-9+()\s-]/g, '');
+                            if (cleaned !== el.value) el.value = cleaned;
+                        });
+
+                        // On blur, format to +63 ... and notify Livewire of the change
+                        el.addEventListener('blur', function(){
+                            if (!el.value) return;
+                            const formatted = formatPH(el.value);
+                            if (formatted !== el.value) {
+                                el.value = formatted;
+                                el.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
                         });
                     })();
                 </script>
