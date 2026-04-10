@@ -49,6 +49,7 @@ Route::middleware(['auth', 'role:counter_staff'])->prefix('counter')->name('coun
     Volt::route('quote-requests', 'counter.quote-requests')->name('quote-requests');
     Volt::route('job-orders', 'counter.job-orders')->name('job-orders');
     Volt::route('job-orders/create', 'counter.job-orders-create')->name('job-orders.create');
+    Volt::route('job-orders/{jobOrder}/edit', 'counter.job-orders-edit')->name('job-orders.edit');
 });
 
 Route::middleware(['auth'])->group(function () {
