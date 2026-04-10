@@ -3,11 +3,11 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950" wire:persist="theme">
+    <body class="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950" wire:persist="theme">
         {{-- Use the shared navbar component --}}
         <x-navbar />
 
-        <main class="pt-20 px-4 sm:px-6 lg:px-8">
+        <main class="flex-1 pt-20 px-4 sm:px-6 lg:px-8">
             <div class="max-w-7xl mx-auto py-6">
                 {{ $slot }}
             </div>

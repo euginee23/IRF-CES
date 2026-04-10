@@ -82,6 +82,8 @@ new class extends Component {
                 'in_progress' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::IN_PROGRESS)->count(),
                 'completed' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::COMPLETED)->count(),
                 'total' => JobOrder::where('assigned_to', $technicianId)->count(),
+                'completed_this_week' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::COMPLETED)->whereBetween('completed_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
+                'completed_this_month' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::COMPLETED)->whereMonth('completed_at', now()->month)->whereYear('completed_at', now()->year)->count(),
             ],
         ];
     }
@@ -101,7 +103,7 @@ new class extends Component {
         </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             <!-- Total Assigned -->
             <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
                 <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -177,6 +179,44 @@ new class extends Component {
                         <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Completed</p>
                         <p class="text-4xl font-bold text-green-600 dark:text-green-400">{{ $stats['completed'] }}</p>
                         <p class="text-xs text-zinc-400 dark:text-zinc-500">finished repairs</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed This Week -->
+            <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative p-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="p-3 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl shadow-md">
+                            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">This Week</p>
+                        <p class="text-4xl font-bold text-teal-600 dark:text-teal-400">{{ $stats['completed_this_week'] }}</p>
+                        <p class="text-xs text-zinc-400 dark:text-zinc-500">completed</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed This Month -->
+            <div class="group relative bg-white dark:bg-zinc-800 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative p-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="p-3 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl shadow-md">
+                            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">This Month</p>
+                        <p class="text-4xl font-bold text-cyan-600 dark:text-cyan-400">{{ $stats['completed_this_month'] }}</p>
+                        <p class="text-xs text-zinc-400 dark:text-zinc-500">completed</p>
                     </div>
                 </div>
             </div>
