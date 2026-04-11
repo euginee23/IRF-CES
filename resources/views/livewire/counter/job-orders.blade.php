@@ -1,7 +1,11 @@
 <?php
 
 use App\Enums\JobOrderStatus;
+use App\Mail\JobCompletedMail;
 use App\Models\JobOrder;
+use App\Models\Part;
+use App\Models\Service;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -13,29 +17,65 @@ new class extends Component {
     public ?JobOrder $selectedJobOrder = null;
     public bool $showViewModal = false;
 
-    public function viewJobOrder(int $id): void
+    private function hydrateJobOrderDetails(JobOrder $jobOrder): JobOrder
     {
-        $job = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
-
-        // Normalize parts data: if parts_needed entries only have part_id, fetch part details
-        $parts = $job->parts_needed ?? [];
+        $parts = $jobOrder->parts_needed ?? [];
         if (is_array($parts) && count($parts) > 0) {
+            $partIds = collect($parts)
+                ->pluck('part_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $partMap = $partIds->isNotEmpty()
+                ? Part::whereIn('id', $partIds)->get()->keyBy('id')
+                : collect();
+
             foreach ($parts as $idx => $p) {
                 $parts[$idx]['quantity'] = isset($p['quantity']) ? (int) $p['quantity'] : 1;
 
-                if (empty($p['part_name']) && !empty($p['part_id'])) {
-                    $partModel = \App\Models\Part::find($p['part_id']);
-                    if ($partModel) {
-                        $parts[$idx]['part_name'] = $partModel->name;
-                        $parts[$idx]['unit_sale_price'] = $partModel->unit_sale_price;
-                    } else {
-                        $parts[$idx]['part_name'] = $parts[$idx]['part_name'] ?? 'N/A';
-                        $parts[$idx]['unit_sale_price'] = $parts[$idx]['unit_sale_price'] ?? 0;
-                    }
+                if (empty($p['part_name']) && !empty($p['part_id']) && isset($partMap[$p['part_id']])) {
+                    $partModel = $partMap[$p['part_id']];
+                    $parts[$idx]['part_name'] = $partModel->name;
+                    $parts[$idx]['unit_sale_price'] = (float) $partModel->unit_sale_price;
+                } else {
+                    $parts[$idx]['part_name'] = $parts[$idx]['part_name'] ?? 'N/A';
+                    $parts[$idx]['unit_sale_price'] = isset($parts[$idx]['unit_sale_price'])
+                        ? (float) $parts[$idx]['unit_sale_price']
+                        : 0.0;
                 }
             }
-            $job->parts_needed = $parts;
+
+            $jobOrder->parts_needed = $parts;
         }
+
+        $issues = $jobOrder->issues ?? [];
+        if (is_array($issues) && count($issues) > 0) {
+            $serviceNames = collect($issues)
+                ->pluck('type')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $serviceMap = $serviceNames->isNotEmpty()
+                ? Service::whereIn('name', $serviceNames)->get()->keyBy('name')
+                : collect();
+
+            foreach ($issues as $idx => $issue) {
+                $service = !empty($issue['type']) ? ($serviceMap[$issue['type']] ?? null) : null;
+                $issues[$idx]['labor_price'] = $service ? (float) $service->labor_price : 0.0;
+            }
+
+            $jobOrder->issues = $issues;
+        }
+
+        return $jobOrder;
+    }
+
+    public function viewJobOrder(int $id): void
+    {
+        $job = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
+        $job = $this->hydrateJobOrderDetails($job);
 
         $this->selectedJobOrder = $job;
         $this->showViewModal = true;
@@ -50,26 +90,7 @@ new class extends Component {
     public function downloadReceipt(int $id)
     {
         $jobOrder = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
-        
-        // Normalize parts data
-        $parts = $jobOrder->parts_needed ?? [];
-        if (is_array($parts) && count($parts) > 0) {
-            foreach ($parts as $idx => $p) {
-                $parts[$idx]['quantity'] = isset($p['quantity']) ? (int) $p['quantity'] : 1;
-                
-                if (empty($p['part_name']) && !empty($p['part_id'])) {
-                    $partModel = \App\Models\Part::find($p['part_id']);
-                    if ($partModel) {
-                        $parts[$idx]['part_name'] = $partModel->name;
-                        $parts[$idx]['unit_sale_price'] = $partModel->unit_sale_price;
-                    } else {
-                        $parts[$idx]['part_name'] = $parts[$idx]['part_name'] ?? 'N/A';
-                        $parts[$idx]['unit_sale_price'] = $parts[$idx]['unit_sale_price'] ?? 0;
-                    }
-                }
-            }
-            $jobOrder->parts_needed = $parts;
-        }
+        $jobOrder = $this->hydrateJobOrderDetails($jobOrder);
         
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.job-order-receipt', [
             'jobOrder' => $jobOrder
@@ -99,10 +120,14 @@ new class extends Component {
         
         $laborTotal = 0.0;
         if(!empty($jobOrder->issues) && is_array($jobOrder->issues)) {
+            $serviceNames = collect($jobOrder->issues)->pluck('type')->filter()->unique();
+            $serviceMap = $serviceNames->isNotEmpty()
+                ? Service::whereIn('name', $serviceNames)->pluck('labor_price', 'name')
+                : collect();
+
             foreach($jobOrder->issues as $issue) {
                 if (!empty($issue['type'])) {
-                    $svc = \App\Models\Service::where('name', $issue['type'])->first();
-                    if ($svc) $laborTotal += (float)$svc->labor_price;
+                    $laborTotal += (float) ($serviceMap[$issue['type']] ?? 0);
                 }
             }
         }
@@ -130,6 +155,49 @@ new class extends Component {
         $jobOrder->approveManually();
         
         $this->dispatch('success', message: 'Job order manually approved successfully.');
+    }
+
+    public function markCompleted(int $id): void
+    {
+        $jobOrder = JobOrder::findOrFail($id);
+
+        if ($jobOrder->status !== JobOrderStatus::DONE) {
+            $this->dispatch('error', message: 'Job order must be marked as done by technician first.');
+            return;
+        }
+
+        $jobOrder->update([
+            'status' => JobOrderStatus::COMPLETED,
+            'completed_at' => now(),
+        ]);
+
+        if ($jobOrder->customer_email) {
+            try {
+                Mail::to($jobOrder->customer_email)->send(new JobCompletedMail($jobOrder));
+            } catch (\Exception $e) {
+                // Log but don't block the status update
+                \Log::error('Failed to send job completed email: ' . $e->getMessage());
+            }
+        }
+
+        $this->dispatch('success', message: 'Job order marked as completed. Customer has been notified.');
+    }
+
+    public function markDelivered(int $id): void
+    {
+        $jobOrder = JobOrder::findOrFail($id);
+
+        if ($jobOrder->status !== JobOrderStatus::COMPLETED) {
+            $this->dispatch('error', message: 'Job order must be completed first.');
+            return;
+        }
+
+        $jobOrder->update([
+            'status' => JobOrderStatus::DELIVERED,
+            'delivered_at' => now(),
+        ]);
+
+        $this->dispatch('success', message: 'Job order marked as delivered.');
     }
 
     public function layout()
@@ -170,6 +238,7 @@ new class extends Component {
                 'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
                 'approved' => JobOrder::where('status', JobOrderStatus::APPROVED)->count(),
                 'in_progress' => JobOrder::where('status', JobOrderStatus::IN_PROGRESS)->count(),
+                'done' => JobOrder::where('status', JobOrderStatus::DONE)->count(),
                 'completed' => JobOrder::where('status', JobOrderStatus::COMPLETED)->count(),
             ],
         ];
@@ -378,6 +447,7 @@ new class extends Component {
                             <option value="awaiting_approval">Awaiting Approval</option>
                             <option value="approved">Approved</option>
                             <option value="in_progress">In Progress</option>
+                            <option value="done">Done</option>
                             <option value="completed">Completed</option>
                             <option value="delivered">Delivered</option>
                             <option value="cancelled">Cancelled</option>
@@ -495,6 +565,7 @@ new class extends Component {
                                                 'awaiting_approval' => 'yellow',
                                                 'approved' => 'emerald',
                                                 'in_progress' => 'indigo',
+                                                'done' => 'cyan',
                                                 'completed' => 'green',
                                                 'delivered' => 'teal',
                                                 'cancelled' => 'red',
@@ -527,16 +598,17 @@ new class extends Component {
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-2">
                                             {{-- View --}}
-                                            <button wire:click="viewJobOrder({{ $jobOrder->id }})" wire:loading.attr="disabled" wire:target="viewJobOrder({{ $jobOrder->id }})" class="inline-flex items-center gap-1 px-3 py-1.5 bg-zinc-600 hover:bg-zinc-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-wait">
-                                                <svg wire:loading.remove wire:target="viewJobOrder({{ $jobOrder->id }})" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <button wire:click="viewJobOrder({{ $jobOrder->id }})" wire:loading.attr="disabled" wire:target="viewJobOrder" class="inline-flex items-center gap-1 px-3 py-1.5 bg-zinc-600 hover:bg-zinc-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+                                                <svg wire:loading.remove wire:target="viewJobOrder" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                 </svg>
-                                                <svg wire:loading wire:target="viewJobOrder({{ $jobOrder->id }})" class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <svg wire:loading wire:target="viewJobOrder" class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
-                                                View
+                                                <span wire:loading.remove wire:target="viewJobOrder">View</span>
+                                                <span wire:loading wire:target="viewJobOrder">Loading...</span>
                                             </button>
                                             @if($jobOrder->canBeEdited())
                                                 {{-- Edit --}}
@@ -675,6 +747,7 @@ new class extends Component {
                                             'awaiting_approval' => 'yellow',
                                             'approved' => 'emerald',
                                             'in_progress' => 'indigo',
+                                            'done' => 'cyan',
                                             'completed' => 'green',
                                             'delivered' => 'teal',
                                             'cancelled' => 'red',
@@ -701,14 +774,11 @@ new class extends Component {
                                             $partsTotal += $qty * $price;
                                         }
 
-                                        // Calculate labor total from issues (lookup labor_price)
+                                        // Calculate labor total from issues
                                         $laborTotal = 0.0;
                                         if(!empty($selectedJobOrder->issues) && is_array($selectedJobOrder->issues)) {
                                             foreach($selectedJobOrder->issues as $issue) {
-                                                if (!empty($issue['type'])) {
-                                                    $svc = \App\Models\Service::where('name', $issue['type'])->first();
-                                                    if ($svc) $laborTotal += (float)$svc->labor_price;
-                                                }
+                                                $laborTotal += (float)($issue['labor_price'] ?? 0);
                                             }
                                         }
 
@@ -908,12 +978,6 @@ new class extends Component {
                                         <div class="p-5">
                                             <div class="space-y-3">
                                                 @foreach($selectedJobOrder->issues as $issue)
-                                                    @php
-                                                        $dbService = null;
-                                                        if (!empty($issue['type'])) {
-                                                            $dbService = \App\Models\Service::where('name', $issue['type'])->first();
-                                                        }
-                                                    @endphp
                                                     <div class="flex items-start gap-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
                                                         <div class="mt-0.5">
                                                             <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -923,7 +987,13 @@ new class extends Component {
                                                         <div class="flex-1">
                                                             <div class="flex items-center justify-between">
                                                                 <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $issue['type'] ?? 'N/A' }}</p>
-                                                                <div class="text-sm font-semibold text-zinc-900 dark:text-white">@if($dbService)Labor: ₱{{ number_format($dbService->labor_price, 2) }} @else — @endif</div>
+                                                                <div class="text-sm font-semibold text-zinc-900 dark:text-white">
+                                                                    @if(isset($issue['labor_price']) && (float)$issue['labor_price'] > 0)
+                                                                        Labor: ₱{{ number_format((float)$issue['labor_price'], 2) }}
+                                                                    @else
+                                                                        —
+                                                                    @endif
+                                                                </div>
                                                             </div>
                                                             @if(!empty($issue['diagnosis']))
                                                                 <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ $issue['diagnosis'] }}</p>
@@ -961,20 +1031,9 @@ new class extends Component {
                                                     <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                                                         @foreach($selectedJobOrder->parts_needed as $part)
                                                             @php
-                                                                $partName = $part['part_name'] ?? null;
-                                                                $unitPrice = isset($part['unit_sale_price']) ? (float)$part['unit_sale_price'] : null;
+                                                                $partName = $part['part_name'] ?? 'N/A';
+                                                                $unitPrice = isset($part['unit_sale_price']) ? (float)$part['unit_sale_price'] : 0.0;
                                                                 $qty = isset($part['quantity']) ? (int)$part['quantity'] : 1;
-
-                                                                if (empty($partName) && !empty($part['part_id'])) {
-                                                                    $pm = \App\Models\Part::find($part['part_id']);
-                                                                    if ($pm) {
-                                                                        $partName = $pm->name;
-                                                                        $unitPrice = $unitPrice ?? $pm->unit_sale_price;
-                                                                    }
-                                                                }
-
-                                                                $partName = $partName ?? 'N/A';
-                                                                $unitPrice = $unitPrice ?? 0;
                                                             @endphp
                                                             <tr>
                                                                 <td class="py-2 font-medium text-zinc-900 dark:text-white">{{ $partName }}</td>
@@ -1081,6 +1140,42 @@ new class extends Component {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
                                     Approve
+                                </button>
+                            @endif
+
+                            @if($selectedJobOrder->status->value === 'done')
+                                <button 
+                                    wire:click="markCompleted({{ $selectedJobOrder->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="markCompleted"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 cursor-pointer"
+                                    title="Mark as completed and notify customer">
+                                    <svg wire:loading.remove wire:target="markCompleted" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <svg wire:loading wire:target="markCompleted" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Mark Completed
+                                </button>
+                            @endif
+
+                            @if($selectedJobOrder->status->value === 'completed')
+                                <button 
+                                    wire:click="markDelivered({{ $selectedJobOrder->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="markDelivered"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 cursor-pointer"
+                                    title="Mark as delivered to customer">
+                                    <svg wire:loading.remove wire:target="markDelivered" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <svg wire:loading wire:target="markDelivered" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Mark Delivered
                                 </button>
                             @endif
                             

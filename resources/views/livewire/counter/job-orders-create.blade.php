@@ -2,6 +2,7 @@
 
 use App\Enums\JobOrderStatus;
 use App\Models\JobOrder;
+use App\Models\RepairQuoteRequest;
 use App\Models\User;
 use App\Models\Service;
 use App\Models\Part;
@@ -30,6 +31,27 @@ new class extends Component {
     {
         $this->services = [['type' => '', 'diagnosis' => '']];
         $this->selectedParts = [];
+
+        $quoteRequestId = request()->integer('quote_request');
+        if (!$quoteRequestId) {
+            return;
+        }
+
+        $quoteRequest = RepairQuoteRequest::whereKey($quoteRequestId)
+            ->where('status', 'approved')
+            ->first();
+
+        if (!$quoteRequest) {
+            $this->dispatch('error', message: 'Approved quote request not found.');
+            return;
+        }
+
+        $this->customer_name = $quoteRequest->name ?? '';
+        $this->customer_email = $quoteRequest->email ?? '';
+        $this->customer_phone = $quoteRequest->phone ?? '';
+        $this->device_brand = $quoteRequest->manufacturer ?? '';
+        $this->device_model = $quoteRequest->model ?? '';
+        $this->issue_description = $quoteRequest->issue_description ?? '';
     }
 
     public function addService()

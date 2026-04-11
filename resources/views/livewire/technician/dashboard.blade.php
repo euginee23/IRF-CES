@@ -52,7 +52,6 @@ new class extends Component {
         $newStatus = JobOrderStatus::from($status);
         $jobOrder->update([
             'status' => $newStatus,
-            'completed_at' => $newStatus === JobOrderStatus::COMPLETED ? now() : $jobOrder->completed_at,
         ]);
         $this->dispatch('success', message: 'Job order status updated successfully.');
     }
@@ -80,10 +79,10 @@ new class extends Component {
             'stats' => [
                 'assigned' => JobOrder::where('assigned_to', $technicianId)->whereIn('status', [JobOrderStatus::ASSIGNED, JobOrderStatus::PENDING, JobOrderStatus::APPROVED])->count(),
                 'in_progress' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::IN_PROGRESS)->count(),
-                'completed' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::COMPLETED)->count(),
+                'completed' => JobOrder::where('assigned_to', $technicianId)->whereIn('status', [JobOrderStatus::DONE, JobOrderStatus::COMPLETED])->count(),
                 'total' => JobOrder::where('assigned_to', $technicianId)->count(),
-                'completed_this_week' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::COMPLETED)->whereBetween('completed_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
-                'completed_this_month' => JobOrder::where('assigned_to', $technicianId)->where('status', JobOrderStatus::COMPLETED)->whereMonth('completed_at', now()->month)->whereYear('completed_at', now()->year)->count(),
+                'completed_this_week' => JobOrder::where('assigned_to', $technicianId)->whereIn('status', [JobOrderStatus::DONE, JobOrderStatus::COMPLETED])->whereBetween('updated_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
+                'completed_this_month' => JobOrder::where('assigned_to', $technicianId)->whereIn('status', [JobOrderStatus::DONE, JobOrderStatus::COMPLETED])->whereMonth('updated_at', now()->month)->whereYear('updated_at', now()->year)->count(),
             ],
         ];
     }
@@ -263,6 +262,7 @@ new class extends Component {
                                             'awaiting_approval' => 'yellow',
                                             'approved' => 'emerald',
                                             'in_progress' => 'indigo',
+                                            'done' => 'cyan',
                                             'completed' => 'green',
                                             'delivered' => 'teal',
                                             'cancelled' => 'red',
@@ -368,6 +368,7 @@ new class extends Component {
                                         'awaiting_approval' => 'yellow',
                                         'approved' => 'emerald',
                                         'in_progress' => 'indigo',
+                                        'done' => 'cyan',
                                         'completed' => 'green',
                                         'delivered' => 'teal',
                                         'cancelled' => 'red',
@@ -430,52 +431,8 @@ new class extends Component {
                                 </div>
                             </div>
 
-                            <!-- Timeline -->
-                            <div class="bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700">
-                                <h4 class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-4">Timeline</h4>
-                                <div class="space-y-4">
-                                    <div class="flex items-start gap-3">
-                                        <div class="mt-0.5 p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                                            <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">Created</p>
-                                            <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->created_at->format('M d, Y h:i A') }}</p>
-                                        </div>
-                                    </div>
-                                    @if($selectedJobOrder->expected_completion_date)
-                                        <div class="flex items-start gap-3">
-                                            <div class="mt-0.5 p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-full">
-                                                <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                                </svg>
-                                            </div>
-                                            <div>
-                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Expected Completion</p>
-                                                <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->expected_completion_date->format('M d, Y') }}</p>
-                                            </div>
-                                        </div>
-                                    @endif
-                                    @if($selectedJobOrder->completed_at)
-                                        <div class="flex items-start gap-3">
-                                            <div class="mt-0.5 p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full">
-                                                <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                                </svg>
-                                            </div>
-                                            <div>
-                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Completed</p>
-                                                <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->completed_at->format('M d, Y h:i A') }}</p>
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-
                             <!-- Quick Status Update -->
-                            @if(!in_array($selectedJobOrder->status->value, ['completed', 'delivered', 'cancelled']))
+                            @if(!in_array($selectedJobOrder->status->value, ['done', 'completed', 'delivered', 'cancelled']))
                                 <div class="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-800">
                                     <h4 class="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide mb-4">Update Status</h4>
                                     <div class="space-y-2">
@@ -485,8 +442,8 @@ new class extends Component {
                                             </button>
                                         @endif
                                         @if($selectedJobOrder->status->value === 'in_progress')
-                                            <button wire:click="updateStatus({{ $selectedJobOrder->id }}, 'completed')" class="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all cursor-pointer">
-                                                Mark as Completed
+                                            <button wire:click="updateStatus({{ $selectedJobOrder->id }}, 'done')" class="w-full px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all cursor-pointer">
+                                                Mark as Done
                                             </button>
                                         @endif
                                     </div>

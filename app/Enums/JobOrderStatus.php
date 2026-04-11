@@ -9,6 +9,7 @@ enum JobOrderStatus: string
     case AWAITING_APPROVAL = 'awaiting_approval';
     case APPROVED = 'approved';
     case IN_PROGRESS = 'in_progress';
+    case DONE = 'done';
     case COMPLETED = 'completed';
     case DELIVERED = 'delivered';
     case CANCELLED = 'cancelled';
@@ -21,6 +22,7 @@ enum JobOrderStatus: string
             self::AWAITING_APPROVAL => 'Awaiting Approval',
             self::APPROVED => 'Approved',
             self::IN_PROGRESS => 'In Progress',
+            self::DONE => 'Done',
             self::COMPLETED => 'Completed',
             self::DELIVERED => 'Delivered',
             self::CANCELLED => 'Cancelled',
@@ -35,6 +37,7 @@ enum JobOrderStatus: string
             self::AWAITING_APPROVAL => 'yellow',
             self::APPROVED => 'emerald',
             self::IN_PROGRESS => 'indigo',
+            self::DONE => 'cyan',
             self::COMPLETED => 'green',
             self::DELIVERED => 'teal',
             self::CANCELLED => 'red',

@@ -12,6 +12,8 @@ new class extends Component {
     public string $statusFilter = '';
     public bool $showModal = false;
     public ?RepairQuoteRequest $selectedRequest = null;
+    public string $quotedPrice = '';
+    public string $quoteNotes = '';
 
     public function layout()
     {
@@ -48,6 +50,8 @@ new class extends Component {
     public function viewRequest(int $id): void
     {
         $this->selectedRequest = RepairQuoteRequest::findOrFail($id);
+        $this->quotedPrice = $this->selectedRequest->quoted_price ? (string) $this->selectedRequest->quoted_price : '';
+        $this->quoteNotes = $this->selectedRequest->quote_notes ?? '';
         $this->showModal = true;
     }
 
@@ -55,6 +59,8 @@ new class extends Component {
     {
         $this->showModal = false;
         $this->selectedRequest = null;
+        $this->quotedPrice = '';
+        $this->quoteNotes = '';
     }
 
     public function updateStatus(int $id, string $status): void
@@ -62,7 +68,6 @@ new class extends Component {
         $request = RepairQuoteRequest::findOrFail($id);
         $request->update(['status' => $status]);
         
-        // Update the selected request if viewing
         if ($this->selectedRequest && $this->selectedRequest->id === $id) {
             $this->selectedRequest->refresh();
         }
@@ -73,14 +78,39 @@ new class extends Component {
     public function createQuote(): void
     {
         if (!$this->selectedRequest) return;
-        
-        // Update status to quoted
-        $this->selectedRequest->update(['status' => 'quoted']);
-        $this->selectedRequest->refresh();
-        
-        // Here you can add logic to create an actual quote
-        // For now, we'll just show a success message
-        $this->dispatch('success', message: 'Quote created successfully. Email sent to customer.');
+
+        $this->validate([
+            'quotedPrice' => 'required|numeric|min:0',
+        ], [
+            'quotedPrice.required' => 'Please enter a quoted price.',
+            'quotedPrice.numeric' => 'The quoted price must be a number.',
+            'quotedPrice.min' => 'The quoted price cannot be negative.',
+        ]);
+
+        if (!$this->selectedRequest->email) {
+            $this->dispatch('error', message: 'Customer email is not available.');
+            return;
+        }
+
+        $portalToken = $this->selectedRequest->portal_token ?? bin2hex(random_bytes(32));
+
+        $this->selectedRequest->update([
+            'quoted_price' => (float) $this->quotedPrice,
+            'quote_notes' => $this->quoteNotes ?: null,
+            'quoted_at' => now(),
+            'portal_token' => $portalToken,
+            'status' => 'quoted',
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($this->selectedRequest->email)
+                ->send(new \App\Mail\QuoteRequestMail($this->selectedRequest));
+
+            $this->selectedRequest->refresh();
+            $this->dispatch('success', message: 'Quote sent successfully to ' . $this->selectedRequest->email);
+        } catch (\Exception $e) {
+            $this->dispatch('error', message: 'Failed to send email: ' . $e->getMessage());
+        }
     }
 
     public function updatedSearch(): void
@@ -268,10 +298,10 @@ new class extends Component {
                     x-transition:leave="transition ease-in duration-200"
                     x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                     x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                    class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                    class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
                     
                     <!-- Modal Header -->
-                    <div class="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
+                    <div class="flex-none flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
                         <div>
                             <h3 class="text-2xl font-bold text-zinc-900 dark:text-white">Quote Request Details</h3>
                             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Request ID: #{{ $selectedRequest->id }}</p>
@@ -286,7 +316,7 @@ new class extends Component {
                     </div>
 
                     <!-- Modal Body -->
-                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                    <div class="flex-1 p-6 overflow-y-auto">
                         <div class="space-y-6">
                             <!-- Status Badge -->
                             <div class="flex items-center gap-3">
@@ -381,23 +411,77 @@ new class extends Component {
                     </div>
 
                     <!-- Modal Footer / Actions -->
-                    <div class="flex items-center justify-end gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50">
-                        <a 
-                            href="mailto:{{ $selectedRequest->email }}?subject=Repair Quote for {{ $selectedRequest->manufacturer }} {{ $selectedRequest->model }}"
-                        class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                            </svg>
-                            Contact Customer
-                        </a>
-                        <button 
-                            wire:click="createQuote"
-                            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-lg hover:shadow-xl">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            Create Quote
-                        </button>
+                    <div class="flex-none p-6 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50">
+                        @if(in_array($selectedRequest->status, ['pending', 'reviewed', 'quoted']))
+                            <!-- Quote Form -->
+                            <div class="mb-4 space-y-4">
+                                <h4 class="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide">Send Quote to Customer</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="quotedPrice" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Quoted Price (₱) *</label>
+                                        <input
+                                            type="number"
+                                            id="quotedPrice"
+                                            wire:model="quotedPrice"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="e.g. 1500.00"
+                                            class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                        @error('quotedPrice')
+                                            <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div>
+                                        <label for="quoteNotes" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Notes (optional)</label>
+                                        <input
+                                            type="text"
+                                            id="quoteNotes"
+                                            wire:model="quoteNotes"
+                                            placeholder="e.g. Screen replacement + battery"
+                                            class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                        <div class="flex items-center justify-end gap-3">
+                            @if($selectedRequest->status === 'approved')
+                                <a
+                                    href="{{ route('counter.job-orders.create', ['quote_request' => $selectedRequest->id]) }}"
+                                    wire:navigate
+                                    class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-lg hover:shadow-xl">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    Create Job Order
+                                </a>
+                            @endif
+                            <a 
+                                href="mailto:{{ $selectedRequest->email }}?subject=Repair Quote for {{ $selectedRequest->manufacturer }} {{ $selectedRequest->model }}"
+                            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                                Contact Customer
+                            </a>
+                            @if(in_array($selectedRequest->status, ['pending', 'reviewed', 'quoted']))
+                                <button 
+                                    wire:click="createQuote"
+                                    wire:loading.attr="disabled"
+                                    wire:target="createQuote"
+                                    class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-wait cursor-pointer">
+                                    <svg wire:loading.remove wire:target="createQuote" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                    </svg>
+                                    <svg wire:loading wire:target="createQuote" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Send Quote Email
+                                </button>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </div>

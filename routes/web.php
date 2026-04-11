@@ -17,6 +17,9 @@ Route::prefix('portal')->name('customer.portal.')->group(function () {
     Route::post('/lookup', [App\Http\Controllers\CustomerPortalController::class, 'lookup'])->name('lookup');
     Route::get('/view/{token}', [App\Http\Controllers\CustomerPortalController::class, 'view'])->name('view');
     Route::post('/approve/{token}', [App\Http\Controllers\CustomerPortalController::class, 'approve'])->name('approve');
+    Route::get('/quote/{token}', [App\Http\Controllers\CustomerPortalController::class, 'quoteView'])->name('quote');
+    Route::post('/quote/{token}/accept', [App\Http\Controllers\CustomerPortalController::class, 'quoteAccept'])->name('quote.accept');
+    Route::post('/quote/{token}/decline', [App\Http\Controllers\CustomerPortalController::class, 'quoteDecline'])->name('quote.decline');
 });
 
 // Redirect to role-specific dashboard after login

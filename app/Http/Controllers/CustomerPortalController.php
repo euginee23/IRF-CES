@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobOrder;
+use App\Models\RepairQuoteRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -112,5 +113,53 @@ class CustomerPortalController extends Controller
         
         return redirect()->route('customer.portal.view', ['token' => $token])
             ->with('success', 'Thank you! Your repair quote has been approved. We will begin work shortly.');
+    }
+
+    /**
+     * Show repair quote request details via secure token.
+     */
+    public function quoteView(string $token): View
+    {
+        $quoteRequest = RepairQuoteRequest::where('portal_token', $token)->firstOrFail();
+
+        return view('customer-portal.quote-view', [
+            'quoteRequest' => $quoteRequest,
+        ]);
+    }
+
+    /**
+     * Accept a repair quote via customer portal.
+     */
+    public function quoteAccept(string $token): RedirectResponse
+    {
+        $quoteRequest = RepairQuoteRequest::where('portal_token', $token)->firstOrFail();
+
+        if ($quoteRequest->status !== 'quoted') {
+            return redirect()->route('customer.portal.quote', ['token' => $token])
+                ->with('error', 'This quote cannot be accepted at this time.');
+        }
+
+        $quoteRequest->update(['status' => 'approved']);
+
+        return redirect()->route('customer.portal.quote', ['token' => $token])
+            ->with('success', 'Thank you! Your repair quote has been accepted. We will contact you to arrange the repair.');
+    }
+
+    /**
+     * Decline a repair quote via customer portal.
+     */
+    public function quoteDecline(string $token): RedirectResponse
+    {
+        $quoteRequest = RepairQuoteRequest::where('portal_token', $token)->firstOrFail();
+
+        if ($quoteRequest->status !== 'quoted') {
+            return redirect()->route('customer.portal.quote', ['token' => $token])
+                ->with('error', 'This quote cannot be declined at this time.');
+        }
+
+        $quoteRequest->update(['status' => 'declined']);
+
+        return redirect()->route('customer.portal.quote', ['token' => $token])
+            ->with('info', 'The quote has been declined. If you change your mind, feel free to submit a new request.');
     }
 }
