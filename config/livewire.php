@@ -42,6 +42,19 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Component Layout (fallback)
+    |---------------------------------------------------------------------------
+    | The Livewire package's internal default config defines this key as
+    | "layouts::app", which relies on a "layouts" view namespace this app does
+    | not register. Overriding it here ensures components that don't declare
+    | an explicit layout still resolve to a valid view.
+    |
+    */
+
+    'component_layout' => 'components.layouts.app',
+
+    /*
+    |---------------------------------------------------------------------------
     | Lazy Loading Placeholder
     |---------------------------------------------------------------------------
     | Livewire allows you to lazy load components that would otherwise slow down

@@ -3,19 +3,27 @@
 use App\Enums\JobOrderStatus;
 use App\Models\JobOrder;
 use App\Models\RepairQuoteRequest;
-use function Livewire\Volt\{state, layout};
+use Livewire\Volt\Component;
 
-layout('components.layouts.app');
+new class extends Component {
+    public function layout()
+    {
+        return 'components.layouts.app';
+    }
 
-state([
-    'todayStats' => fn() => [
-        'today_orders' => JobOrder::whereDate('created_at', today())->count(),
-        'pending_orders' => JobOrder::where('status', JobOrderStatus::PENDING)->count(),
-        'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
-        'pending_quotes' => RepairQuoteRequest::where('status', 'pending')->count(),
-    ],
-    'recentOrders' => fn() => JobOrder::with(['receivedBy', 'assignedTo'])->latest()->take(5)->get(),
-]);
+    public function with(): array
+    {
+        return [
+            'todayStats' => [
+                'today_orders' => JobOrder::whereDate('created_at', today())->count(),
+                'pending_orders' => JobOrder::where('status', JobOrderStatus::PENDING)->count(),
+                'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
+                'pending_quotes' => RepairQuoteRequest::where('status', 'pending')->count(),
+            ],
+            'recentOrders' => JobOrder::with(['receivedBy', 'assignedTo'])->latest()->take(5)->get(),
+        ];
+    }
+};
 
 ?>
 

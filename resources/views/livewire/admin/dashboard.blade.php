@@ -7,46 +7,54 @@ use App\Models\RepairQuoteRequest;
 use App\Models\Service;
 use App\Models\Supplier;
 use App\Models\User;
-use function Livewire\Volt\{state, layout};
+use Livewire\Volt\Component;
 
-layout('components.layouts.app');
+new class extends Component {
+    public function layout()
+    {
+        return 'components.layouts.app';
+    }
 
-state([
-    'stats' => fn() => [
-        // Job Orders
-        'total_job_orders' => JobOrder::count(),
-        'pending_orders' => JobOrder::where('status', JobOrderStatus::PENDING)->count(),
-        'assigned_orders' => JobOrder::where('status', JobOrderStatus::ASSIGNED)->count(),
-        'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
-        'approved_orders' => JobOrder::where('status', JobOrderStatus::APPROVED)->count(),
-        'in_progress_orders' => JobOrder::where('status', JobOrderStatus::IN_PROGRESS)->count(),
-        'completed_orders' => JobOrder::where('status', JobOrderStatus::COMPLETED)->count(),
-        'delivered_orders' => JobOrder::where('status', JobOrderStatus::DELIVERED)->count(),
-        'cancelled_orders' => JobOrder::where('status', JobOrderStatus::CANCELLED)->count(),
-        'total_revenue' => JobOrder::whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED])->sum('final_cost') ?: JobOrder::whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED])->sum('estimated_cost'),
-        'this_month_orders' => JobOrder::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
+    public function with(): array
+    {
+        return [
+            'stats' => [
+                // Job Orders
+                'total_job_orders' => JobOrder::count(),
+                'pending_orders' => JobOrder::where('status', JobOrderStatus::PENDING)->count(),
+                'assigned_orders' => JobOrder::where('status', JobOrderStatus::ASSIGNED)->count(),
+                'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
+                'approved_orders' => JobOrder::where('status', JobOrderStatus::APPROVED)->count(),
+                'in_progress_orders' => JobOrder::where('status', JobOrderStatus::IN_PROGRESS)->count(),
+                'completed_orders' => JobOrder::where('status', JobOrderStatus::COMPLETED)->count(),
+                'delivered_orders' => JobOrder::where('status', JobOrderStatus::DELIVERED)->count(),
+                'cancelled_orders' => JobOrder::where('status', JobOrderStatus::CANCELLED)->count(),
+                'total_revenue' => JobOrder::whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED])->sum('final_cost') ?: JobOrder::whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED])->sum('estimated_cost'),
+                'this_month_orders' => JobOrder::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
 
-        // Parts / Inventory
-        'active_parts' => Part::where('is_active', true)->count(),
-        'low_stock_parts' => Part::where('is_active', true)->whereColumn('in_stock', '<=', 'reorder_point')->count(),
-        'inventory_value' => Part::where('is_active', true)->selectRaw('SUM(in_stock * unit_cost_price) as total')->value('total') ?? 0,
+                // Parts / Inventory
+                'active_parts' => Part::where('is_active', true)->count(),
+                'low_stock_parts' => Part::where('is_active', true)->whereColumn('in_stock', '<=', 'reorder_point')->count(),
+                'inventory_value' => Part::where('is_active', true)->selectRaw('SUM(in_stock * unit_cost_price) as total')->value('total') ?? 0,
 
-        // Quote Requests
-        'total_quotes' => RepairQuoteRequest::count(),
-        'pending_quotes' => RepairQuoteRequest::where('status', 'pending')->count(),
+                // Quote Requests
+                'total_quotes' => RepairQuoteRequest::count(),
+                'pending_quotes' => RepairQuoteRequest::where('status', 'pending')->count(),
 
-        // Services & Suppliers
-        'active_services' => Service::where('is_active', true)->count(),
-        'active_suppliers' => Supplier::where('is_active', true)->count(),
+                // Services & Suppliers
+                'active_services' => Service::where('is_active', true)->count(),
+                'active_suppliers' => Supplier::where('is_active', true)->count(),
 
-        // Users
-        'total_users' => User::count(),
-        'administrators' => User::where('role', 'administrator')->count(),
-        'technicians' => User::where('role', 'technician')->count(),
-        'counter_staff' => User::where('role', 'counter_staff')->count(),
-    ],
-    'recentOrders' => fn() => JobOrder::with(['receivedBy', 'assignedTo'])->latest()->take(5)->get(),
-]);
+                // Users
+                'total_users' => User::count(),
+                'administrators' => User::where('role', 'administrator')->count(),
+                'technicians' => User::where('role', 'technician')->count(),
+                'counter_staff' => User::where('role', 'counter_staff')->count(),
+            ],
+            'recentOrders' => JobOrder::with(['receivedBy', 'assignedTo'])->latest()->take(5)->get(),
+        ];
+    }
+};
 
 ?>
 
