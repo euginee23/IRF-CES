@@ -238,45 +238,51 @@
 
                 <div class="greeting">
                     Hello <strong style="color: #1f2937;">{{ $supplier->contact_person ?: $supplier->name }}</strong>,<br>
-                    We need to restock the following item. Please confirm availability and delivery timeline.
+                    We need to restock the following {{ $items->count() === 1 ? 'item' : $items->count() . ' items' }}.
+                    Please confirm availability and delivery timeline.
                 </div>
 
-                <div class="card">
-                    <div class="card-title">Part Information</div>
-                    <table class="info-table">
-                        <tr class="info-row">
-                            <td class="info-label">PART NAME</td>
-                            <td class="info-value">{{ $part->name }}</td>
-                        </tr>
-                        <tr class="info-row">
-                            <td class="info-label divider">SKU</td>
-                            <td class="info-value info-value-mono divider">{{ $part->sku }}</td>
-                        </tr>
-                        <tr class="info-row">
-                            <td class="info-label divider">CATEGORY</td>
-                            <td class="info-value info-value-normal divider">{{ $part->category }}</td>
-                        </tr>
-                        <tr class="info-row">
-                            <td class="info-label divider">MANUFACTURER</td>
-                            <td class="info-value info-value-normal divider">{{ $part->manufacturer }}</td>
-                        </tr>
-                        <tr class="info-row">
-                            <td class="info-label divider">MODEL</td>
-                            <td class="info-value info-value-normal divider">{{ $part->model }}</td>
-                        </tr>
-                        <tr class="info-row">
-                            <td class="info-label divider">REQUESTED QUANTITY</td>
-                            <td class="info-value divider" style="color: #3b82f6;">{{ $requestedQuantity }}</td>
-                        </tr>
-                    </table>
-                </div>
+                @foreach($items as $item)
+                    @php($part = $item['part'])
+                    <div class="card">
+                        <div class="card-title">
+                            Part Information{{ $items->count() > 1 ? ' — ' . $loop->iteration . ' of ' . $items->count() : '' }}
+                        </div>
+                        <table class="info-table">
+                            <tr class="info-row">
+                                <td class="info-label">PART NAME</td>
+                                <td class="info-value">{{ $part->name }}</td>
+                            </tr>
+                            <tr class="info-row">
+                                <td class="info-label divider">SKU</td>
+                                <td class="info-value info-value-mono divider">{{ $part->sku }}</td>
+                            </tr>
+                            <tr class="info-row">
+                                <td class="info-label divider">CATEGORY</td>
+                                <td class="info-value info-value-normal divider">{{ $part->category }}</td>
+                            </tr>
+                            <tr class="info-row">
+                                <td class="info-label divider">MANUFACTURER</td>
+                                <td class="info-value info-value-normal divider">{{ $part->manufacturer }}</td>
+                            </tr>
+                            <tr class="info-row">
+                                <td class="info-label divider">MODEL</td>
+                                <td class="info-value info-value-normal divider">{{ $part->model }}</td>
+                            </tr>
+                            <tr class="info-row">
+                                <td class="info-label divider">REQUESTED QUANTITY</td>
+                                <td class="info-value divider" style="color: #3b82f6;">{{ $item['quantity'] }}</td>
+                            </tr>
+                        </table>
+                    </div>
 
-                @if($part->description)
-                <div class="note-box">
-                    <div class="note-title">Part Description</div>
-                    <div class="note-content">{{ $part->description }}</div>
-                </div>
-                @endif
+                    @if($part->description)
+                    <div class="note-box">
+                        <div class="note-title">Part Description</div>
+                        <div class="note-content">{{ $part->description }}</div>
+                    </div>
+                    @endif
+                @endforeach
 
                 @if($additionalNotes)
                 <div class="note-box note-box-warning">

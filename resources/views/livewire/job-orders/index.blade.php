@@ -469,7 +469,7 @@ new class extends Component {
                         {{ $jobOrders->total() }}
                     </span>
                 </div>
-                <a href="{{ route('counter.job-orders.create') }}"
+                <a href="{{ route('job-orders.create') }}"
                     class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -496,7 +496,7 @@ new class extends Component {
                         @endif
                     </p>
                     @if(!$search && !$statusFilter)
-                        <a href="{{ route('counter.job-orders.create') }}"
+                        <a href="{{ route('job-orders.create') }}"
                             class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -612,7 +612,7 @@ new class extends Component {
                                             </button>
                                             @if($jobOrder->canBeEdited())
                                                 {{-- Edit --}}
-                                                <a href="{{ route('counter.job-orders.edit', $jobOrder) }}" wire:navigate
+                                                <a href="{{ route('job-orders.edit', $jobOrder) }}" wire:navigate
                                                     x-data="{ loading: false }" x-on:click="loading = true"
                                                     class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer"
                                                     x-bind:class="loading && 'opacity-50 pointer-events-none cursor-wait'">

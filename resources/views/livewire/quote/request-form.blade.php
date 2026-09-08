@@ -4,10 +4,7 @@ use App\Models\RepairQuoteRequest;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
-use Intervention\Image\ImageManagerStatic as Image;
 
 new class extends Component {
     use WithFileUploads;
@@ -41,19 +38,23 @@ new class extends Component {
     {
         return [
             'images' => 'nullable|array',
-            // Only accept PNG/JPEG and limit to 15MB per file
-            'images.*' => 'nullable|file|mimes:jpg,jpeg,png,heic,heif|max:15360', // 15MB max per image
+            // Images only (PNG/JPG/JPEG), 15MB per file. The `image` rule inspects the
+            // actual file contents, so a document renamed to .jpg is still rejected.
+            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:15360', // 15MB max per image
             'newImages' => 'nullable|array',
-            'newImages.*' => 'nullable|file|mimes:jpg,jpeg,png,heic,heif|max:15360',
+            'newImages.*' => 'nullable|image|mimes:jpg,jpeg,png|max:15360',
             'recaptcha' => 'required|string',
         ];
     }
     
     public function updatedNewImages()
     {
-        // Validate files client-side (type + size) and only accept png/jpg/jpeg up to 15MB.
+        // Validate files (type + size) and only accept png/jpg/jpeg images up to 15MB.
+        // Documents are rejected here; the `image` rule in rules() is the authoritative
+        // content-based check on submit.
         $maxBytes = 15 * 1024 * 1024;
         $allowedExt = ['jpg', 'jpeg', 'png'];
+        $allowedMimes = ['image/jpeg', 'image/png'];
         $collectedErrors = [];
 
         if (!empty($this->newImages)) {
@@ -69,7 +70,14 @@ new class extends Component {
                     }
 
                     if (!in_array($ext, $allowedExt)) {
-                        $collectedErrors[] = "{$name}: invalid file type (only PNG/JPEG allowed).";
+                        $collectedErrors[] = "{$name}: only image files are accepted (PNG, JPG, JPEG).";
+                        continue;
+                    }
+
+                    // Verify the real contents are an image, not a document renamed to .jpg
+                    $realMime = method_exists($image, 'getMimeType') ? strtolower((string) $image->getMimeType()) : null;
+                    if ($realMime !== null && !in_array($realMime, $allowedMimes)) {
+                        $collectedErrors[] = "{$name}: only image files are accepted (PNG, JPG, JPEG).";
                         continue;
                     }
 
@@ -185,53 +193,6 @@ new class extends Component {
                     continue;
                 }
 
-                // Detect mime type robustly
-                $mime = null;
-                if (method_exists($image, 'getClientMimeType')) {
-                    $mime = $image->getClientMimeType();
-                } elseif (method_exists($image, 'getMimeType')) {
-                    $mime = $image->getMimeType();
-                }
-
-                // Handle HEIC/HEIF conversion to JPEG when possible
-                if (in_array(strtolower($mime), ['image/heic', 'image/heif'])) {
-                    // Prefer Imagick if available
-                    if (extension_loaded('imagick')) {
-                        try {
-                            $imagick = new \Imagick($image->getRealPath());
-                            $imagick->setImageFormat('jpeg');
-                            $imagick->setImageCompressionQuality(85);
-                            $blob = $imagick->getImageBlob();
-                            $filename = 'repair-quotes/' . Str::random(40) . '.jpg';
-                            Storage::disk('public')->put($filename, $blob);
-                            $imagePaths[] = $filename;
-                            continue;
-                        } catch (\Throwable $e) {
-                            $this->addError('images', 'Failed to convert HEIC to JPEG: ' . $e->getMessage());
-                            continue;
-                        }
-                    }
-
-                    // Fallback to Intervention Image if installed
-                    if (class_exists('\\Intervention\\Image\\ImageManagerStatic')) {
-                        try {
-                            $jpg = Image::make($image->getRealPath())->encode('jpg', 85);
-                            $filename = 'repair-quotes/' . Str::random(40) . '.jpg';
-                            Storage::disk('public')->put($filename, (string) $jpg);
-                            $imagePaths[] = $filename;
-                            continue;
-                        } catch (\Throwable $e) {
-                            $this->addError('images', 'Failed to convert HEIC to JPEG: ' . $e->getMessage());
-                            continue;
-                        }
-                    }
-
-                    // If neither conversion path is available, show a clear error
-                    $this->addError('images', 'HEIC/HEIF images are not supported by the server. Install the PHP Imagick extension or the intervention/image package to enable conversion.');
-                    continue;
-                }
-
-                // For supported non-HEIC types just store normally
                 try {
                     $imagePaths[] = $image->store('repair-quotes', 'public');
                 } catch (\Throwable $e) {
@@ -411,15 +372,28 @@ new class extends Component {
                     <!-- Drag and Drop Zone -->
                     <label for="newImages" class="block">
                         <div 
-                            x-data="{ isDragging: false }" 
+                            x-data="{ isDragging: false, dropError: '' }"
                             @dragover.prevent="isDragging = true"
                             @dragleave.prevent="isDragging = false"
                             @drop.prevent="
                                 isDragging = false;
-                                let dt = $event.dataTransfer;
-                                let input = document.getElementById('newImages');
-                                input.files = dt.files;
-                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                                dropError = '';
+                                // The accept attribute only filters the file picker, so dropped
+                                // files must be filtered here or documents get through.
+                                const allowed = ['image/jpeg', 'image/png'];
+                                const dt = new DataTransfer();
+                                let rejected = 0;
+                                for (const file of $event.dataTransfer.files) {
+                                    if (allowed.includes(file.type)) { dt.items.add(file); } else { rejected++; }
+                                }
+                                if (rejected > 0) {
+                                    dropError = rejected + ' file(s) skipped — images only (PNG, JPG, JPEG).';
+                                }
+                                if (dt.files.length) {
+                                    const input = document.getElementById('newImages');
+                                    input.files = dt.files;
+                                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
                             "
                             :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-zinc-300 dark:border-zinc-700'"
                             class="cursor-pointer border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200 hover:border-blue-400 dark:hover:border-blue-500">
@@ -428,7 +402,7 @@ new class extends Component {
                                 id="newImages" 
                                 wire:model="newImages" 
                                 multiple 
-                                accept="image/*,.jpg,.jpeg,.png,.heic,.heif,.webp"
+                                accept="image/png,image/jpeg,.jpg,.jpeg,.png"
                                 class="hidden" 
                                 wire:key="upload-{{ $uploadIteration }}" />
                             
@@ -443,6 +417,7 @@ new class extends Component {
                                 </label>
                                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">PNG, JPG, JPEG up to 15MB each</p>
                                 <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ count($images) }} image(s) uploaded</p>
+                                <p x-show="dropError" x-text="dropError" x-cloak class="text-xs font-medium text-red-600 dark:text-red-400 mt-1"></p>
                             </div>
                         </div>
                         
@@ -548,7 +523,7 @@ new class extends Component {
                             }
 
                             // Add helpful guidance for common upload problems
-                            const guidance = 'Allowed types: PNG, JPG, JPEG (HEIC converted) — max 15MB per file.';
+                            const guidance = 'Allowed types: PNG, JPG, JPEG only — max 15MB per file. Documents are not accepted.';
 
                             // Attempt to enumerate files from the input for richer context
                             let fileInfo = '';

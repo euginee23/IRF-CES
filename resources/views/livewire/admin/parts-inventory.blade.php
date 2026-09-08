@@ -1,8 +1,11 @@
 <?php
 
+use App\Mail\RestockRequestMail;
 use App\Models\Part;
 use App\Models\Supplier;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -16,7 +19,10 @@ new class extends Component {
     public bool $isEditing = false;
     public ?Part $selectedPart = null;
     public bool $showRestockModal = false;
-    public ?int $restockPartId = null;
+    /** Supplier NAME — parts.supplier is a string, not a foreign key. */
+    public string $restockSupplier = '';
+    /** [partId => ['selected' => bool, 'quantity' => int]] */
+    public array $restockItems = [];
     public string $restockNotes = '';
 
     protected $queryString = ['search', 'categoryFilter'];
@@ -93,7 +99,7 @@ new class extends Component {
         }
 
         if ($this->showLowStock) {
-            $query->whereRaw('in_stock <= reorder_point');
+            $query->lowStock();
         }
 
         $parts = $query->latest()->paginate($this->perPage);
@@ -107,7 +113,7 @@ new class extends Component {
             'Structural & Physical Components',
             'Accessories & External Parts',
         ]);
-        $lowStockCount = Part::whereRaw('in_stock <= reorder_point')->count();
+        $lowStockCount = Part::lowStock()->count();
 
         $totalValue = (float) DB::table('parts')
             ->selectRaw('COALESCE(SUM(in_stock * unit_cost_price), 0) as total')
@@ -124,6 +130,11 @@ new class extends Component {
             'suppliers' => $this->suppliers(),
             'totalValue' => $totalValue,
             'totalSaleMargin' => $totalSaleMargin,
+            'restockCandidates' => $this->restockCandidates(),
+            // Lets each row explain why restocking is unavailable, rather than
+            // silently hiding the button. Keyed by the supplier NAME that
+            // parts.supplier stores.
+            'supplierEmailByName' => Supplier::pluck('email', 'name')->all(),
         ];
     }
 
@@ -200,49 +211,134 @@ new class extends Component {
         }
     }
 
+    /**
+     * Every part from the open request's supplier that still needs restocking.
+     * Drives the modal list and is re-checked on send, so only genuinely needed
+     * parts can ever be requested.
+     */
+    public function restockCandidates(): Collection
+    {
+        if (! $this->showRestockModal || $this->restockSupplier === '') {
+            return collect();
+        }
+
+        return Part::query()
+            ->lowStock()
+            ->where('supplier', $this->restockSupplier)
+            ->orderBy('name')
+            ->get();
+    }
+
     public function openRestockModal(int $partId): void
     {
         $part = Part::findOrFail($partId);
-        
+
         // Check if part has a supplier
         if (!$part->supplier) {
-            $this->dispatch('error', message: 'This part does not have a supplier assigned.');
+            $this->dispatch('error', message: 'No supplier for this part yet. Please select a supplier for this part, or add one in the Suppliers panel.');
+            return;
+        }
+
+        // Only parts at or below their reorder point may be restocked
+        if (! $part->isLowStock()) {
+            $this->dispatch('error', message: 'This part does not need restocking.');
             return;
         }
 
         // Find the supplier by name
         $supplier = Supplier::where('name', $part->supplier)->first();
-        
+
         if (!$supplier) {
-            $this->dispatch('error', message: 'Supplier not found in the database.');
+            $this->dispatch('error', message: '"' . $part->supplier . '" is not in the Suppliers panel yet. Please add it there, or select a different supplier for this part.');
             return;
         }
 
         if (!$supplier->email) {
-            $this->dispatch('error', message: 'Supplier does not have an email address.');
+            $this->dispatch('error', message: '"' . $supplier->name . '" has no email address yet. Please add one in the Suppliers panel.');
             return;
         }
 
-        $this->restockPartId = $partId;
+        $this->resetErrorBag();
+        $this->restockSupplier = $part->supplier;
         $this->restockNotes = '';
+
+        // Offer every part from this supplier that needs restocking, with the
+        // clicked one already ticked.
+        $this->restockItems = Part::query()
+            ->lowStock()
+            ->where('supplier', $part->supplier)
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (Part $candidate) => [$candidate->id => [
+                'selected' => $candidate->id === $part->id,
+                'quantity' => $candidate->suggestedRestockQuantity(),
+            ]])
+            ->all();
+
         $this->showRestockModal = true;
     }
 
     public function confirmRestock(): void
     {
-        if (!$this->restockPartId) {
+        $selectedIds = collect($this->restockItems)
+            ->filter(fn ($row) => (bool) ($row['selected'] ?? false))
+            ->keys()
+            ->all();
+
+        if (empty($selectedIds)) {
+            $this->addError('restockItems', 'Select at least one part to restock.');
             return;
         }
 
-        $part = Part::findOrFail($this->restockPartId);
-        $supplier = Supplier::where('name', $part->supplier)->first();
-        
-        // Calculate requested quantity (double the reorder point minus current stock)
-        $requestedQuantity = max(1, ($part->reorder_point * 2) - $part->in_stock);
+        // Only validate the rows actually being requested
+        $rules = ['restockNotes' => 'nullable|string|max:1000'];
+        foreach ($selectedIds as $id) {
+            $rules["restockItems.{$id}.quantity"] = [
+                'required', 'integer', 'min:1', 'max:' . Part::MAX_RESTOCK_QUANTITY,
+            ];
+        }
+
+        $this->validate($rules, [
+            'restockItems.*.quantity.required' => 'Enter a quantity.',
+            'restockItems.*.quantity.integer' => 'Quantity must be a whole number.',
+            'restockItems.*.quantity.min' => 'Quantity must be at least 1.',
+            'restockItems.*.quantity.max' => 'You can request at most :max units per part.',
+        ]);
+
+        $supplier = Supplier::where('name', $this->restockSupplier)->first();
+
+        if (! $supplier) {
+            $this->dispatch('error', message: '"' . $this->restockSupplier . '" is not in the Suppliers panel yet. Please add it there, or select a different supplier for this part.');
+            return;
+        }
+
+        if (! $supplier->email) {
+            $this->dispatch('error', message: '"' . $supplier->name . '" has no email address yet. Please add one in the Suppliers panel.');
+            return;
+        }
+
+        // Re-resolve against the same constraints rather than trusting the ids
+        // that came back from the browser.
+        $parts = Part::query()
+            ->lowStock()
+            ->whereIn('id', $selectedIds)
+            ->where('supplier', $this->restockSupplier)
+            ->orderBy('name')
+            ->get();
+
+        if ($parts->isEmpty()) {
+            $this->dispatch('error', message: 'None of the selected parts need restocking.');
+            return;
+        }
+
+        $items = $parts->map(fn (Part $part) => [
+            'part' => $part,
+            'quantity' => (int) $this->restockItems[$part->id]['quantity'],
+        ])->values();
 
         try {
-            \Mail::to($supplier->email)->send(new \App\Mail\RestockRequestMail($part, $supplier, $requestedQuantity, $this->restockNotes));
-            $this->dispatch('success', message: 'Restock request email sent to ' . $supplier->name . ' successfully!');
+            Mail::to($supplier->email)->send(new RestockRequestMail($supplier, $items, $this->restockNotes));
+            $this->dispatch('success', message: 'Restock request for ' . $items->count() . ' item(s) sent to ' . $supplier->name . ' successfully!');
             $this->closeRestockModal();
         } catch (\Exception $e) {
             $this->dispatch('error', message: 'Failed to send email: ' . $e->getMessage());
@@ -252,8 +348,10 @@ new class extends Component {
     public function closeRestockModal(): void
     {
         $this->showRestockModal = false;
-        $this->restockPartId = null;
+        $this->restockSupplier = '';
+        $this->restockItems = [];
         $this->restockNotes = '';
+        $this->resetErrorBag();
     }
 
     public function closeModal(): void
@@ -635,17 +733,51 @@ new class extends Component {
                                                 Delete
                                             </button>
                                         </div>
-                                        @if($part->supplier && $part->isLowStock())
-                                            <button 
-                                                type="button"
-                                                wire:click="openRestockModal({{ $part->id }})"
-                                                class="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer"
-                                                title="Request restock from supplier">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                                                </svg>
-                                                Request Restock
-                                            </button>
+                                        @if($part->isLowStock())
+                                            @php
+                                                $restockBlocker = null;
+                                                if (! $part->supplier) {
+                                                    $restockBlocker = [
+                                                        'label' => 'No supplier yet',
+                                                        'hint' => 'No supplier for this part yet. Please select a supplier for this part, or add one in the Suppliers panel.',
+                                                    ];
+                                                } elseif (! array_key_exists($part->supplier, $supplierEmailByName)) {
+                                                    $restockBlocker = [
+                                                        'label' => 'Supplier not in panel',
+                                                        'hint' => '"' . $part->supplier . '" is not in the Suppliers panel yet. Please add it there, or select a different supplier for this part.',
+                                                    ];
+                                                } elseif (empty($supplierEmailByName[$part->supplier])) {
+                                                    $restockBlocker = [
+                                                        'label' => 'Supplier has no email',
+                                                        'hint' => '"' . $part->supplier . '" has no email address yet. Please add one in the Suppliers panel.',
+                                                    ];
+                                                }
+                                            @endphp
+
+                                            @if($restockBlocker)
+                                                <div
+                                                    class="w-full flex items-start gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300 text-xs rounded-lg"
+                                                    title="{{ $restockBlocker['hint'] }}">
+                                                    <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                                    </svg>
+                                                    <span class="text-left leading-tight">
+                                                        <span class="font-semibold block">{{ $restockBlocker['label'] }}</span>
+                                                        <a href="{{ route('admin.suppliers') }}" wire:navigate class="underline hover:no-underline">Open Suppliers panel</a>
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <button
+                                                    type="button"
+                                                    wire:click="openRestockModal({{ $part->id }})"
+                                                    class="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer"
+                                                    title="Request restock from supplier">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                    </svg>
+                                                    Request Restock
+                                                </button>
+                                            @endif
                                         @endif
                                     </div>
                                     </td>
@@ -1076,7 +1208,7 @@ new class extends Component {
                     x-transition:leave="ease-in duration-200"
                     x-transition:leave-start="opacity-100 scale-100"
                     x-transition:leave-end="opacity-0 scale-95"
-                    class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-lg w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
+                    class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full border border-zinc-200 dark:border-zinc-800 overflow-hidden transform transition-all"
                 >
                     <!-- Modal Header -->
                     <div class="bg-gradient-to-r from-orange-600 to-amber-600 px-6 py-4 flex items-center justify-between">
@@ -1086,7 +1218,12 @@ new class extends Component {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                                 </svg>
                             </div>
-                            <h3 class="text-lg font-bold text-white">Confirm Restock Request</h3>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Confirm Restock Request</h3>
+                                @if($restockSupplier)
+                                    <p class="text-xs text-white/80">Supplier: {{ $restockSupplier }}</p>
+                                @endif
+                            </div>
                         </div>
                         <button 
                             wire:click="closeRestockModal" 
@@ -1110,8 +1247,63 @@ new class extends Component {
                                     Send restock request email to supplier?
                                 </p>
                                 <p class="text-sm text-zinc-600 dark:text-zinc-400">
-                                    This will notify the supplier about the low stock status and request a restock.
+                                    Only parts that are at or below their reorder point are listed.
+                                    You can request up to {{ \App\Models\Part::MAX_RESTOCK_QUANTITY }} units per part.
                                 </p>
+                            </div>
+                        </div>
+
+                        <!-- Selectable parts needing restock -->
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                    Parts to Restock
+                                </label>
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ collect($restockItems)->where('selected', true)->count() }} of {{ $restockCandidates->count() }} selected
+                                </span>
+                            </div>
+
+                            @error('restockItems')
+                                <p class="mb-2 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+
+                            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg divide-y divide-zinc-200 dark:divide-zinc-700 max-h-80 overflow-y-auto">
+                                @forelse($restockCandidates as $candidate)
+                                    @php($row = $restockItems[$candidate->id] ?? ['selected' => false, 'quantity' => 1])
+                                    <div wire:key="restock-{{ $candidate->id }}" class="flex items-start gap-3 p-3 {{ ($row['selected'] ?? false) ? 'bg-orange-50/60 dark:bg-orange-900/10' : '' }}">
+                                        <input
+                                            type="checkbox"
+                                            wire:model.live="restockItems.{{ $candidate->id }}.selected"
+                                            class="mt-1 w-4 h-4 text-orange-600 border-zinc-300 dark:border-zinc-600 rounded focus:ring-orange-500 cursor-pointer">
+
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-semibold text-zinc-900 dark:text-white truncate">{{ $candidate->name }}</p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{{ $candidate->sku }}</p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                                In stock <span class="font-semibold text-red-600 dark:text-red-400">{{ $candidate->in_stock }}</span>
+                                                / reorder point {{ $candidate->reorder_point }}
+                                            </p>
+                                        </div>
+
+                                        <div class="w-28 shrink-0">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="{{ \App\Models\Part::MAX_RESTOCK_QUANTITY }}"
+                                                wire:model="restockItems.{{ $candidate->id }}.quantity"
+                                                @disabled(! ($row['selected'] ?? false))
+                                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                            @error('restockItems.' . $candidate->id . '.quantity')
+                                                <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="p-4 text-sm text-zinc-500 dark:text-zinc-400 text-center">
+                                        No parts from this supplier currently need restocking.
+                                    </p>
+                                @endforelse
                             </div>
                         </div>
 

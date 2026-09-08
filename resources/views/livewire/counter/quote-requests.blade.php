@@ -448,7 +448,7 @@ new class extends Component {
                         <div class="flex items-center justify-end gap-3">
                             @if($selectedRequest->status === 'approved')
                                 <a
-                                    href="{{ route('counter.job-orders.create', ['quote_request' => $selectedRequest->id]) }}"
+                                    href="{{ route('job-orders.create', ['quote_request' => $selectedRequest->id]) }}"
                                     wire:navigate
                                     class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-lg hover:shadow-xl">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

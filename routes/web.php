@@ -50,9 +50,14 @@ Route::middleware(['auth', 'role:technician'])->prefix('technician')->name('tech
 Route::middleware(['auth', 'role:counter_staff'])->prefix('counter')->name('counter.')->group(function () {
     Volt::route('dashboard', 'counter.dashboard')->name('dashboard');
     Volt::route('quote-requests', 'counter.quote-requests')->name('quote-requests');
-    Volt::route('job-orders', 'counter.job-orders')->name('job-orders');
-    Volt::route('job-orders/create', 'counter.job-orders-create')->name('job-orders.create');
-    Volt::route('job-orders/{jobOrder}/edit', 'counter.job-orders-edit')->name('job-orders.edit');
+});
+
+// Job Orders — administrators and counter staff both create job orders and assign
+// them to technicians.
+Route::middleware(['auth', 'role:administrator,counter_staff'])->prefix('job-orders')->name('job-orders.')->group(function () {
+    Volt::route('/', 'job-orders.index')->name('index');
+    Volt::route('/create', 'job-orders.create')->name('create');
+    Volt::route('/{jobOrder}/edit', 'job-orders.edit')->name('edit');
 });
 
 Route::middleware(['auth'])->group(function () {

@@ -127,7 +127,7 @@ new class extends Component {
             <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Common counter operations</p>
 
             <div class="mt-6 space-y-3">
-                <a href="{{ route('counter.job-orders.create') }}" wire:navigate class="flex items-center gap-4 p-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-medium hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors">
+                <a href="{{ route('job-orders.create') }}" wire:navigate class="flex items-center gap-4 p-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-medium hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors">
                     <div class="p-2 bg-white/10 dark:bg-zinc-900/10 rounded-lg">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -139,7 +139,7 @@ new class extends Component {
                     </div>
                 </a>
 
-                <a href="{{ route('counter.job-orders') }}" wire:navigate class="flex items-center gap-4 p-4 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white rounded-xl font-medium hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
+                <a href="{{ route('job-orders.index') }}" wire:navigate class="flex items-center gap-4 p-4 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white rounded-xl font-medium hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
                     <div class="p-2 bg-zinc-100 dark:bg-zinc-700 rounded-lg">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

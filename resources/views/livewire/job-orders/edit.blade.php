@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Service;
 use App\Models\Part;
 use App\Enums\Role;
+use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -31,7 +32,7 @@ new class extends Component {
     public function mount(JobOrder $jobOrder)
     {
         if (!$jobOrder->canBeEdited()) {
-            $this->redirect(route('counter.job-orders'), navigate: true);
+            $this->redirect(route('job-orders.index'), navigate: true);
             return;
         }
 
@@ -232,7 +233,7 @@ new class extends Component {
             'selectedParts.*.part_id' => 'required|exists:parts,id',
             'selectedParts.*.quantity' => 'required|integer|min:1',
             'expected_completion_date' => 'nullable|date|after_or_equal:today',
-            'assigned_to' => 'nullable|exists:users,id',
+            'assigned_to' => ['nullable', Rule::exists('users', 'id')->where('role', Role::TECHNICIAN->value)],
         ]);
 
         if (empty($validated['expected_completion_date'])) {
@@ -269,7 +270,7 @@ new class extends Component {
         $this->jobOrder->update($validated);
 
         $this->dispatch('success', message: 'Job order updated successfully: ' . $this->jobOrder->job_order_number);
-        $this->redirect(route('counter.job-orders'), navigate: true);
+        $this->redirect(route('job-orders.index'), navigate: true);
     }
 }; ?>
 
@@ -571,7 +572,7 @@ new class extends Component {
 
             <!-- Actions -->
             <div class="flex items-center justify-end gap-3">
-                <a href="{{ route('counter.job-orders') }}" wire:navigate class="px-4 py-2 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition">Cancel</a>
+                <a href="{{ route('job-orders.index') }}" wire:navigate class="px-4 py-2 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition">Cancel</a>
                 <button type="submit" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition cursor-pointer">Update Job Order</button>
             </div>
         </form>

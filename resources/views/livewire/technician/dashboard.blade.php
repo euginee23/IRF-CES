@@ -14,7 +14,9 @@ new class extends Component {
 
     public function viewJobOrder(int $id): void
     {
-        $job = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
+        $job = JobOrder::with(['receivedBy', 'assignedTo'])
+            ->where('assigned_to', auth()->id())
+            ->findOrFail($id);
 
         // Normalize parts data
         $parts = $job->parts_needed ?? [];

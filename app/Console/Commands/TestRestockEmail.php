@@ -29,14 +29,15 @@ class TestRestockEmail extends Command
             return 1;
         }
 
-        $requestedQuantity = max(1, ($part->reorder_point * 2) - $part->in_stock);
+        $requestedQuantity = $part->suggestedRestockQuantity();
+        $items = collect([['part' => $part, 'quantity' => $requestedQuantity]]);
 
         $this->info("Sending email to: {$supplier->email}");
         $this->info("Part: {$part->name}");
         $this->info("Requested Quantity: {$requestedQuantity}");
 
         try {
-            Mail::to($supplier->email)->send(new RestockRequestMail($part, $supplier, $requestedQuantity));
+            Mail::to($supplier->email)->send(new RestockRequestMail($supplier, $items));
             $this->info('✓ Email sent successfully!');
             $this->info('Check Mailpit at http://localhost:8025');
             return 0;

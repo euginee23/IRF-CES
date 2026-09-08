@@ -35,7 +35,9 @@
                         <a href="{{ route('counter.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('counter/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Quotes
                         </a>
-                        <a href="{{ route('counter.job-orders') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('counter/job-orders*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
+                    @endif
+                    @if(auth()->user()->isAdministrator() || auth()->user()->isCounterStaff())
+                        <a href="{{ route('job-orders.index') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('job-orders*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Job Orders
                         </a>
                     @endif
@@ -165,7 +167,9 @@
                         <a href="{{ route('counter.quote-requests') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('counter/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Quotes
                         </a>
-                        <a href="{{ route('counter.job-orders') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('counter/job-orders*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                    @endif
+                    @if(auth()->user()->isAdministrator() || auth()->user()->isCounterStaff())
+                        <a href="{{ route('job-orders.index') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('job-orders*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Job Orders
                         </a>
                     @endif

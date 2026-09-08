@@ -2,14 +2,13 @@
 
 namespace App\Mail;
 
-use App\Models\Part;
 use App\Models\Supplier;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Collection;
 
 class RestockRequestMail extends Mailable
 {
@@ -17,11 +16,12 @@ class RestockRequestMail extends Mailable
 
     /**
      * Create a new message instance.
+     *
+     * @param  Collection<int, array{part: \App\Models\Part, quantity: int}>  $items
      */
     public function __construct(
-        public Part $part,
         public Supplier $supplier,
-        public int $requestedQuantity,
+        public Collection $items,
         public string $additionalNotes = '',
     ) {
         //
@@ -33,7 +33,9 @@ class RestockRequestMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Restock Request for ' . $this->part->name,
+            subject: $this->items->count() === 1
+                ? 'Restock Request for ' . $this->items->first()['part']->name
+                : 'Restock Request for ' . $this->items->count() . ' items',
         );
     }
 

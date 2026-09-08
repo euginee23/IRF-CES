@@ -78,17 +78,14 @@ return [
 
     'temporary_file_upload' => [
     'disk' => null,        // Example: 'local', 's3'              | Default: 'default'
-    // Increase temporary upload max to 50MB (51200 KB). Note: PHP's upload_max_filesize and post_max_size
-    // must also be increased to accept larger uploads — see instructions in README or below.
-    'rules' => ['nullable','file','mimes:jpg,jpeg,png,heic,heif','max:15360'],
+    // Images only (PNG/JPG/JPEG), 15MB (15360 KB) per file. Rejecting here keeps documents
+    // out of temporary storage entirely. Note: PHP's upload_max_filesize and post_max_size
+    // must also be large enough to accept these uploads — see instructions in README or below.
+    'rules' => ['required','file','image','mimes:jpg,jpeg,png','max:15360'],
     'directory' => null,   // Example: 'tmp'                      | Default: 'livewire-tmp'
     'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'
         'preview_mimes' => [   // Supported file types for temporary pre-signed file URLs...
-            'png', 'gif', 'bmp', 'svg', 'wav', 'mp4',
-            'mov', 'avi', 'wmv', 'mp3', 'm4a',
-            'jpg', 'jpeg', 'mpga', 'webp', 'wma',
-            // Add HEIC/HEIF so iOS-originated images can generate temporary previews
-            'heic', 'heif',
+            'png', 'jpg', 'jpeg',
         ],
         'max_upload_time' => 5, // Max duration (in minutes) before an upload is invalidated...
         'cleanup' => true, // Should cleanup temporary uploads older than 24 hrs...
