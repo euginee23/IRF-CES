@@ -329,7 +329,11 @@
                                     <div>
                                         <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-1">Quote Approved</p>
                                         <p class="text-xs text-emerald-700 dark:text-emerald-300">
-                                            @if($jobOrder->isApprovedByCustomer())
+                                            {{-- Tests the timestamp it formats, not just the approval
+                                                 method: the two are written together today, but guarding
+                                                 on one and formatting the other is how the job order
+                                                 modal ended up 500ing, and this page faces customers. --}}
+                                            @if($jobOrder->isApprovedByCustomer() && $jobOrder->approved_by_customer_at)
                                                 You approved this quote on {{ $jobOrder->approved_by_customer_at->format('F d, Y \a\t g:i A') }}.
                                             @else
                                                 This quote has been approved. We're working on your repair.

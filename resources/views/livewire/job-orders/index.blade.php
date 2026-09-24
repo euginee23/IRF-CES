@@ -980,22 +980,24 @@ new class extends Component {
                                                     </svg>
                                                 </div>
                                                 <div>
-                                            @if($selectedJobOrder->completed_at)
-                                                <div class="flex items-start gap-3">
-                                                    <div class="mt-0.5 p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full">
-                                                        <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                                        </svg>
-                                                    </div>
-                                                    <div>
-                                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">Completed</p>
-                                                        <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->completed_at->format('M d, Y h:i A') }}</p>
-                                                    </div>
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Completed</p>
+                                                    <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->completed_at->format('M d, Y h:i A') }}</p>
                                                 </div>
-                                            @endif
+                                            </div>
+                                        @endif
+                                        {{-- Delivered needs its own guard. It used to sit inside the
+                                             completed_at block with no test of its own, so a repair that
+                                             was finished but not yet collected formatted a null
+                                             delivered_at and took the whole modal down with a 500. --}}
+                                        @if($selectedJobOrder->delivered_at)
+                                            <div class="flex items-start gap-3">
+                                                <div class="mt-0.5 p-1.5 bg-teal-100 dark:bg-teal-900/30 rounded-full">
+                                                    <svg class="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                </div>
+                                                <div>
                                                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Delivered</p>
-                                    
-                                        
                                                     <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->delivered_at->format('M d, Y h:i A') }}</p>
                                                 </div>
                                             </div>

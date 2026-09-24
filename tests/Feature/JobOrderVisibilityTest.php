@@ -221,3 +221,56 @@ test('the history is newest first', function () {
     expect($events->first()->to_status)->toBe(JobOrderStatus::DONE)
         ->and($events->last()->type)->toBe(\App\Models\JobOrderEvent::TYPE_CREATED);
 });
+
+// -- Nullable lifecycle dates in the view modal ----------------------------
+
+test('a completed job order that has not been collected yet can be viewed', function () {
+    // The Delivered block used to sit inside the completed_at guard without a
+    // test of its own, so every finished-but-uncollected repair formatted a
+    // null delivered_at and took the modal down with a 500. On production
+    // that was 5 of 8 job orders.
+    $jobOrder = visibilityJobOrder([
+        'status' => JobOrderStatus::COMPLETED,
+        'completed_at' => now(),
+        'delivered_at' => null,
+    ]);
+
+    $this->actingAs(visibilityUser(Role::ADMINISTRATOR));
+
+    // Rendering at all is the regression guard; the delivered timestamp
+    // itself must be absent. ("Delivered" as a word also appears in the
+    // status filter, so the date is what distinguishes the block.)
+    Volt::test('job-orders.index')
+        ->call('viewJobOrder', $jobOrder->id)
+        ->assertHasNoErrors()
+        ->assertSee($jobOrder->completed_at->format('M d, Y h:i A'));
+});
+
+test('a delivered job order shows both dates', function () {
+    $jobOrder = visibilityJobOrder([
+        'status' => JobOrderStatus::DELIVERED,
+        'completed_at' => now()->subDay(),
+        'delivered_at' => now(),
+    ]);
+
+    $this->actingAs(visibilityUser(Role::ADMINISTRATOR));
+
+    Volt::test('job-orders.index')
+        ->call('viewJobOrder', $jobOrder->id)
+        ->assertHasNoErrors()
+        ->assertSee($jobOrder->completed_at->format('M d, Y h:i A'))
+        ->assertSee($jobOrder->delivered_at->format('M d, Y h:i A'));
+});
+
+test('a job order with none of the lifecycle dates set can be viewed', function () {
+    $jobOrder = visibilityJobOrder([
+        'status' => JobOrderStatus::PENDING,
+        'expected_completion_date' => null,
+    ]);
+
+    $this->actingAs(visibilityUser(Role::ADMINISTRATOR));
+
+    Volt::test('job-orders.index')
+        ->call('viewJobOrder', $jobOrder->id)
+        ->assertHasNoErrors();
+});
