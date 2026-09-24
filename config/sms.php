@@ -75,6 +75,26 @@ return [
 
             'timeout' => env('IPROGSMS_TIMEOUT', 15),
 
+            // IPROG reaches Globe, TM and DITO with its shared sender name.
+            // Smart, TNT and Sun only accept traffic under a custom sender
+            // name IPROG has approved for the account — about 40% of the
+            // market. While this is false, those numbers are refused instead
+            // of being charged for a message that never arrives. Set it true
+            // once IPROG confirms an approved sender name.
+            'sender_name_approved' => env('IPROGSMS_SENDER_NAME_APPROVED', false),
+
+            // IPROG prepends the account's sender name and a space to the body
+            // of every message, and those characters count towards the 160 in
+            // a billed segment. Set this to the exact name IPROG uses so the
+            // composer counts the real budget rather than promising 160.
+            // Confirmed by reading back a sent message: a body of "Test."
+            // arrived as "IRF-CES Repair System Test.".
+            'sender_name' => env('IPROGSMS_SENDER_NAME', ''),
+
+            // Network lookups are cached this long. Not forever: a number can
+            // be ported to another network. Seconds; default 7 days.
+            'network_cache_ttl' => env('IPROGSMS_NETWORK_CACHE_TTL', 604800),
+
             // Audit trail of real sends: recipient and IPROG message id only.
             'log_channel' => env('SMS_LOG_CHANNEL', 'sms'),
         ],

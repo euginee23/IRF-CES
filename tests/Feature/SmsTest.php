@@ -22,9 +22,25 @@ function smsSender(): SmsSender
  * An IPROG sender with logging off, so tests that only care about the HTTP
  * exchange need no Log expectations.
  */
-function iprogSender(string $token = 'tok_123', ?int $provider = null): IprogSmsSender
+function iprogSender(string $token = 'tok_123', ?int $provider = null, bool $senderNameApproved = true): IprogSmsSender
 {
-    return new IprogSmsSender(token: $token, provider: $provider, logChannel: null);
+    // Sender name approved by default so the network gate stays out of the way
+    // of tests about sending; the gate has its own tests below.
+    return new IprogSmsSender(
+        token: $token,
+        provider: $provider,
+        logChannel: null,
+        senderNameApproved: $senderNameApproved,
+    );
+}
+
+/** IPROG's documented network-detection body. */
+function iprogNetwork(string $network, bool $isSmartTnt): array
+{
+    return [
+        'status' => 'success',
+        'data' => ['phone_number' => '09171234567', 'is_smart_tnt' => $isSmartTnt, 'network' => $network],
+    ];
 }
 
 /** IPROG's documented success body. */
@@ -276,6 +292,121 @@ test('the container builds the iprogsms driver with the configured token', funct
     $sender->send('09171234567', 'Quote ready.');
 
     Http::assertSent(fn (Request $request) => $request->data()['api_token'] === 'tok_from_config');
+});
+
+test('a Smart, TNT or Sun number is refused before a credit is spent', function () {
+    Http::fake([
+        '*phone_numbers/detect' => Http::response(iprogNetwork('Smart/TNT', true)),
+        '*sms_messages' => Http::response(iprogAccepted()),
+    ]);
+
+    expect(fn () => iprogSender(senderNameApproved: false)->send('09181234567', 'Quote ready.'))
+        ->toThrow(RuntimeException::class, 'Smart, TNT and Sun numbers cannot be reached');
+
+    // The point of the gate: no send request, so no credit.
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'sms_messages'));
+});
+
+test('Globe, TM and DITO numbers send normally', function (string $network) {
+    Http::fake([
+        '*phone_numbers/detect' => Http::response(iprogNetwork($network, false)),
+        '*sms_messages' => Http::response(iprogAccepted()),
+    ]);
+
+    iprogSender(senderNameApproved: false)->send('09171234567', 'Quote ready.');
+
+    Http::assertSent(fn (Request $request) => str_contains($request->url(), 'sms_messages'));
+})->with(['Globe/TM', 'DITO']);
+
+test('an approved sender name lifts the block and skips the lookup', function () {
+    Http::fake(['*' => Http::response(iprogAccepted())]);
+
+    iprogSender(senderNameApproved: true)->send('09181234567', 'Quote ready.');
+
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'phone_numbers/detect'));
+    Http::assertSentCount(1);
+});
+
+test('an unavailable network lookup lets the send through rather than blocking it', function (callable $fake) {
+    Http::fake($fake);
+
+    // Failing closed would make one flaky lookup stop every message.
+    iprogSender(senderNameApproved: false)->send('09171234567', 'Quote ready.');
+
+    Http::assertSent(fn (Request $request) => str_contains($request->url(), 'sms_messages'));
+})->with([
+    'lookup unreachable' => [fn () => fn (Request $request) => str_contains($request->url(), 'detect')
+        ? throw new ConnectionException('cURL error 28')
+        : Http::response(iprogAccepted())],
+    'network unrecognised' => [fn () => fn (Request $request) => str_contains($request->url(), 'detect')
+        ? Http::response(iprogNetwork('Unknown Network', false))
+        : Http::response(iprogAccepted())],
+]);
+
+test('a detected network is cached so the composer does not re-ask per keystroke', function () {
+    Http::fake(['*phone_numbers/detect' => Http::response(iprogNetwork('Globe/TM', false))]);
+
+    $sender = iprogSender();
+
+    expect($sender->detectNetwork('09171234567'))->toBe(['network' => 'Globe/TM', 'is_smart_tnt' => false])
+        ->and($sender->detectNetwork('0917-123-4567'))->toBe(['network' => 'Globe/TM', 'is_smart_tnt' => false]);
+
+    // Both spellings normalise to the same number, so one lookup covers them.
+    Http::assertSentCount(1);
+});
+
+test('a prefix IPROG does not recognise is reported rather than hidden', function () {
+    // Their table really does miss prefixes in use — 0952 comes back like this.
+    Http::fake(['*phone_numbers/detect' => Http::response(iprogNetwork('Unknown Network', false))]);
+
+    expect(iprogSender()->detectNetwork('09524529089'))
+        ->toBe(['network' => 'Unknown Network', 'is_smart_tnt' => false]);
+});
+
+test('a malformed number gives no network answer and is not cached', function () {
+    Http::fake(['*phone_numbers/detect' => Http::response([
+        'status' => 'error',
+        'data' => ['is_smart_tnt' => false, 'network' => 'Invalid Format'],
+    ])]);
+
+    $sender = iprogSender();
+
+    expect($sender->detectNetwork('09171234567'))->toBeNull()
+        ->and($sender->detectNetwork('09171234567'))->toBeNull();
+
+    Http::assertSentCount(2);
+});
+
+test('network detection needs a token and a usable number', function (string $token, string $number) {
+    Http::fake();
+
+    expect((new IprogSmsSender(token: $token, logChannel: null))->detectNetwork($number))->toBeNull();
+
+    Http::assertNothingSent();
+})->with([
+    'no token' => ['', '09171234567'],
+    'unusable number' => ['tok_123', 'not-a-number'],
+]);
+
+test('logging can be switched off with an explicit null channel', function () {
+    // A plain ?? would read the null as "not configured" and log anyway,
+    // which is how test runs ended up writing to the real sms.log.
+    config([
+        'sms.default' => 'iprogsms',
+        'sms.drivers.iprogsms' => [
+            'driver' => 'iprogsms',
+            'token' => 'tok_123',
+            'log_channel' => null,
+            'sender_name_approved' => true,
+        ],
+    ]);
+
+    Http::fake(['*' => Http::response(iprogAccepted())]);
+    Log::shouldReceive('channel')->never();
+
+    smsSender()->send('09171234567', 'Quote ready.');
+
+    Http::assertSentCount(1);
 });
 
 test('the credit balance is read from the account endpoint', function () {

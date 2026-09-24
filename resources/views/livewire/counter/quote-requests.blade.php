@@ -1,5 +1,7 @@
 <?php
 
+use App\Contracts\Contactable;
+use App\Livewire\Concerns\ContactsCustomer;
 use App\Models\RepairQuoteRequest;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -7,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 new class extends Component {
     use WithPagination;
+    use ContactsCustomer;
 
     public string $search = '';
     public string $statusFilter = '';
@@ -61,6 +64,19 @@ new class extends Component {
         $this->selectedRequest = null;
         $this->quotedPrice = '';
         $this->quoteNotes = '';
+        $this->closeContactModal();
+    }
+
+    /** The record the Contact Customer composer acts on. */
+    protected function contactRecord(): ?Contactable
+    {
+        return $this->selectedRequest;
+    }
+
+    /** Pull in the message just recorded so the history list shows it. */
+    protected function refreshContactRecord(): void
+    {
+        $this->selectedRequest?->refresh();
     }
 
     public function updateStatus(int $id, string $status): void
@@ -457,14 +473,15 @@ new class extends Component {
                                     Create Job Order
                                 </a>
                             @endif
-                            <a 
-                                href="mailto:{{ $selectedRequest->email }}?subject=Repair Quote for {{ $selectedRequest->manufacturer }} {{ $selectedRequest->model }}"
-                            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all">
+                            <button
+                                type="button"
+                                wire:click="openContactModal"
+                            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all cursor-pointer">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z"/>
                                 </svg>
                                 Contact Customer
-                            </a>
+                            </button>
                             @if(in_array($selectedRequest->status, ['pending', 'reviewed', 'quoted']))
                                 <button 
                                     wire:click="createQuote"
@@ -487,4 +504,6 @@ new class extends Component {
             </div>
         </div>
     @endif
+
+    @include('partials.contact-customer-modal')
 </div>

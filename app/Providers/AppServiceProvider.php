@@ -38,7 +38,13 @@ class AppServiceProvider extends ServiceProvider
                     provider: is_numeric($config['provider'] ?? null) ? (int) $config['provider'] : null,
                     countryCode: (string) config('sms.country_code', '63'),
                     timeout: (int) ($config['timeout'] ?? 15),
-                    logChannel: $config['log_channel'] ?? 'sms',
+                    // array_key_exists, not ??: an explicit null means "do not
+                    // log", which ?? would quietly turn back into the channel.
+                    logChannel: array_key_exists('log_channel', $config)
+                        ? $config['log_channel']
+                        : 'sms',
+                    senderNameApproved: (bool) ($config['sender_name_approved'] ?? false),
+                    networkCacheTtl: (int) ($config['network_cache_ttl'] ?? 604800),
                 ),
                 'log' => new LogSmsSender(
                     channel: $config['channel'] ?? 'sms',
