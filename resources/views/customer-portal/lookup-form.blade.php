@@ -36,17 +36,20 @@
             
             <div>
                 <label for="job_order_number" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
-                    Job Order Number
+                    Tracking Code or Job Order Number
                 </label>
                 <input 
                     type="text" 
                     id="job_order_number" 
                     name="job_order_number"
-                    placeholder="e.g., JO-20251231-0001"
+                    placeholder="e.g. R7K4M2, or JO-20251231-0001"
                     required
                     class="w-full px-3 py-2 text-base border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all"
                     value="{{ old('job_order_number') }}"
                 />
+                <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    Your tracking code is on your claim stub and in the text message we sent you.
+                </p>
                 @error('job_order_number')
                     <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                 @enderror

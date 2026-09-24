@@ -5,8 +5,10 @@ use App\Models\JobOrder;
 use App\Models\User;
 use App\Models\Service;
 use App\Models\Part;
+use App\Models\PartCategory;
 use App\Enums\Role;
 use Illuminate\Validation\Rule;
+use App\Services\JobOrders\JobOrderLines;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -48,33 +50,27 @@ new class extends Component {
         $this->expected_completion_date = $jobOrder->expected_completion_date?->format('Y-m-d') ?? '';
         $this->assigned_to = $jobOrder->assigned_to;
 
-        // Load services from issues
-        $this->services = [];
-        if (!empty($jobOrder->issues) && is_array($jobOrder->issues)) {
-            foreach ($jobOrder->issues as $issue) {
-                $this->services[] = [
-                    'type' => $issue['type'] ?? '',
-                    'diagnosis' => $issue['diagnosis'] ?? '',
-                ];
-            }
-        }
+        // Lines come off their own tables, which already hold the name and
+        // the price agreed at intake — no per-part lookup needed.
+        $this->services = $jobOrder->services
+            ->map(fn ($service) => [
+                'type' => $service->service_name,
+                'diagnosis' => $service->diagnosis ?? '',
+            ])
+            ->all();
+
         if (empty($this->services)) {
             $this->services = [['type' => '', 'diagnosis' => '']];
         }
 
-        // Load selected parts from parts_needed
-        $this->selectedParts = [];
-        if (!empty($jobOrder->parts_needed) && is_array($jobOrder->parts_needed)) {
-            foreach ($jobOrder->parts_needed as $part) {
-                $partModel = Part::find($part['part_id'] ?? null);
-                $this->selectedParts[] = [
-                    'part_id' => $part['part_id'] ?? null,
-                    'part_name' => $part['part_name'] ?? ($partModel ? $partModel->name : 'N/A'),
-                    'quantity' => (int) ($part['quantity'] ?? 1),
-                    'unit_sale_price' => (float) ($part['unit_sale_price'] ?? ($partModel ? $partModel->unit_sale_price : 0)),
-                ];
-            }
-        }
+        $this->selectedParts = $jobOrder->parts
+            ->map(fn ($part) => [
+                'part_id' => $part->part_id,
+                'part_name' => $part->part_name,
+                'quantity' => $part->quantity,
+                'unit_sale_price' => (float) $part->unit_sale_price,
+            ])
+            ->all();
     }
 
     public function addService()
@@ -128,23 +124,9 @@ new class extends Component {
 
     public function getEstimatedCostProperty()
     {
-        $serviceTotal = 0;
-        $partsTotal = 0;
-
-        foreach ($this->services as $service) {
-            if (!empty($service['type'])) {
-                $dbService = Service::where('name', $service['type'])->first();
-                if ($dbService) {
-                    $serviceTotal += $dbService->labor_price;
-                }
-            }
-        }
-
-        foreach ($this->selectedParts as $part) {
-            $partsTotal += ($part['unit_sale_price'] ?? 0) * ($part['quantity'] ?? 1);
-        }
-
-        return $serviceTotal + $partsTotal;
+        // One query per side rather than one per service: this runs on every
+        // render of the intake form, including each keystroke in the search.
+        return app(JobOrderLines::class)->previewTotal($this->services, $this->selectedParts);
     }
 
     public function layout()
@@ -175,16 +157,10 @@ new class extends Component {
 
     public function with(): array
     {
+        // Out-of-stock parts stay in the picker — a repair can be booked
+        // against a part the shop has to order — so the special case that
+        // kept already-selected zero-stock parts visible is no longer needed.
         $partsQuery = Part::where('is_active', true);
-
-        // Show parts with stock OR parts already selected (even if stock is now 0)
-        $selectedPartIds = array_column($this->selectedParts, 'part_id');
-        $partsQuery->where(function ($q) use ($selectedPartIds) {
-            $q->where('in_stock', '>', 0);
-            if (!empty($selectedPartIds)) {
-                $q->orWhereIn('id', $selectedPartIds);
-            }
-        });
 
         if ($this->partSearch) {
             $partsQuery->where(function($q) {
@@ -194,17 +170,14 @@ new class extends Component {
         }
 
         if ($this->partCategoryFilter) {
-            $partsQuery->where('category', $this->partCategoryFilter);
+            $partsQuery->where('part_category_id', $this->partCategoryFilter);
         }
 
         $availableParts = $partsQuery->orderBy('name')->get();
 
-        $categories = Part::where('is_active', true)
-            ->whereNotNull('category')
-            ->distinct()
-            ->pluck('category')
-            ->sort()
-            ->values();
+        // The managed list, so this picker and the admin inventory screen
+        // always offer the same categories.
+        $categories = PartCategory::active()->ordered()->get();
 
         return [
             'manufacturers' => $this->manufacturers(),
@@ -240,25 +213,9 @@ new class extends Component {
             $validated['expected_completion_date'] = null;
         }
 
-        $validated['issues'] = $validated['services'];
-        unset($validated['services']);
-
-        $validated['parts_needed'] = $validated['selectedParts'] ?? [];
-        if (is_array($validated['parts_needed']) && count($validated['parts_needed']) > 0) {
-            foreach ($validated['parts_needed'] as $i => $p) {
-                $partModel = Part::find($p['part_id'] ?? null);
-                if ($partModel) {
-                    $validated['parts_needed'][$i]['part_name'] = $partModel->name;
-                    $validated['parts_needed'][$i]['unit_sale_price'] = (float) $partModel->unit_sale_price;
-                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
-                } else {
-                    $validated['parts_needed'][$i]['part_name'] = $p['part_name'] ?? 'N/A';
-                    $validated['parts_needed'][$i]['unit_sale_price'] = isset($p['unit_sale_price']) ? (float) $p['unit_sale_price'] : 0.0;
-                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
-                }
-            }
-        }
-        unset($validated['selectedParts']);
+        $services = $validated['services'];
+        $parts = $validated['selectedParts'] ?? [];
+        unset($validated['services'], $validated['selectedParts']);
 
         $validated['estimated_cost'] = $this->estimated_cost;
 
@@ -268,6 +225,8 @@ new class extends Component {
         }
 
         $this->jobOrder->update($validated);
+
+        app(JobOrderLines::class)->sync($this->jobOrder, $services, $parts);
 
         $this->dispatch('success', message: 'Job order updated successfully: ' . $this->jobOrder->job_order_number);
         $this->redirect(route('job-orders.index'), navigate: true);
@@ -511,7 +470,7 @@ new class extends Component {
                         <select wire:model.live="partCategoryFilter" class="px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900">
                             <option value="">All Categories</option>
                             @foreach($partCategories as $category)
-                                <option value="{{ $category }}">{{ $category }}</option>
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -530,7 +489,17 @@ new class extends Component {
                                     @php $isSelected = in_array($part->id, array_column($selectedParts, 'part_id')); @endphp
                                     <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 {{ $isSelected ? 'bg-emerald-50 dark:bg-emerald-900/10' : '' }}">
                                         <td class="px-2 py-1.5">{{ $part->name }}</td>
-                                        <td class="px-2 py-1.5 text-center">{{ $part->in_stock }}</td>
+                                        <td class="px-2 py-1.5 text-center">
+                                            @if($part->availableStock() > 0)
+                                                {{ $part->availableStock() }}
+                                            @else
+                                                {{-- Still addable: the repair is booked and the part
+                                                     is ordered in. --}}
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-900/30">
+                                                    Order in
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td class="px-2 py-1.5 text-center">
                                             @if($isSelected)
                                                 <span class="text-emerald-600 text-xs">✓ Added</span>

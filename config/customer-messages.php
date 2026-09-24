@@ -28,6 +28,35 @@ return [
     |
     */
 
+    /*
+    | Messages the system sends on its own, rather than presets staff pick
+    | from. Kept out of 'templates' so they do not appear in the composer,
+    | where "your repair has been booked in" would never be the right thing
+    | to send by hand.
+    */
+
+    'system' => [
+
+        'repair_booked' => [
+            'subject' => 'We have booked in your :device',
+            'sms' => 'Hi :name, we have booked in your :device. Your tracking code is :tracking_code. Track it here: :portal_url',
+            'email' => <<<'TEXT'
+            Hi :name,
+
+            Thank you for bringing in your :device. It is now booked in with us.
+
+            Your tracking code is :tracking_code — quote it if you call or visit.
+
+            You can follow the repair here:
+            :portal_url
+
+            Thank you,
+            :shop
+            TEXT,
+        ],
+
+    ],
+
     'templates' => [
 
         'quote_ready' => [
@@ -113,6 +142,24 @@ return [
             We wanted to let you know that the parts needed for your :device have been delayed by our supplier.
 
             Your repair is still booked in, and we will contact you as soon as the parts arrive. We are sorry for the wait.
+
+            Thank you for your patience,
+            :shop
+            TEXT,
+        ],
+
+        // The other half of parts_delayed: the delivery landed and the repair
+        // is moving again.
+        'parts_arrived' => [
+            'label' => 'Parts arrived',
+            'subject' => 'Good news — the parts for your :device are in',
+            'sms' => 'Hi :name, the parts for your :device have arrived and your repair is back in the queue.',
+            'email' => <<<'TEXT'
+            Hi :name,
+
+            Good news — the parts needed for your :device have arrived, and your repair is back in the queue.
+
+            You can follow its progress here: :portal_url
 
             Thank you for your patience,
             :shop

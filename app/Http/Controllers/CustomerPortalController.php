@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\JobOrder;
 use App\Models\RepairQuoteRequest;
+use App\Services\JobOrders\JobOrderWorkflow;
+use App\Services\TrackingCode;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class CustomerPortalController extends Controller
 {
@@ -17,7 +19,7 @@ class CustomerPortalController extends Controller
     {
         return redirect()->route('welcome')->withFragment('track-repair');
     }
-    
+
     /**
      * Lookup job order by job order number.
      */
@@ -26,91 +28,60 @@ class CustomerPortalController extends Controller
         $request->validate([
             'job_order_number' => 'required|string',
         ]);
-        
-        $jobOrder = JobOrder::where('job_order_number', $request->job_order_number)
+
+        $input = trim($request->string('job_order_number'));
+
+        // Either identifier works: the short code from the claim stub or the
+        // text message, or the full job order number from the paperwork.
+        $jobOrder = JobOrder::query()
+            ->where('job_order_number', $input)
+            ->orWhere('tracking_code', TrackingCode::normalise($input))
             ->first();
-            
-        if (!$jobOrder || !$jobOrder->portal_token) {
+
+        if (! $jobOrder || ! $jobOrder->portal_token) {
             return redirect()->route('customer.portal.index')
                 ->withFragment('track-repair')
-                ->with('error', 'Job order not found. Please check your job order number and try again.');
+                ->with('error', 'We could not find that repair. Please check your tracking code or job order number and try again.');
         }
-        
+
         return redirect()->route('customer.portal.view', ['token' => $jobOrder->portal_token]);
     }
-    
+
     /**
      * Show job order details via secure token.
      */
     public function view(string $token): View
     {
         $jobOrder = JobOrder::where('portal_token', $token)
-            ->with(['receivedBy', 'assignedTo'])
+            ->with(['receivedBy', 'assignedTo', 'parts', 'services'])
             ->firstOrFail();
-            
-        // Normalize parts data
-        $parts = $jobOrder->parts_needed ?? [];
-        if (is_array($parts) && count($parts) > 0) {
-            foreach ($parts as $idx => $p) {
-                $parts[$idx]['quantity'] = isset($p['quantity']) ? (int) $p['quantity'] : 1;
-                
-                if (empty($p['part_name']) && !empty($p['part_id'])) {
-                    $partModel = \App\Models\Part::find($p['part_id']);
-                    if ($partModel) {
-                        $parts[$idx]['part_name'] = $partModel->name;
-                        $parts[$idx]['unit_sale_price'] = $partModel->unit_sale_price;
-                    } else {
-                        $parts[$idx]['part_name'] = $parts[$idx]['part_name'] ?? 'N/A';
-                        $parts[$idx]['unit_sale_price'] = $parts[$idx]['unit_sale_price'] ?? 0;
-                    }
-                }
-            }
-            $jobOrder->parts_needed = $parts;
-        }
-        
-        // Calculate totals
-        $partsTotal = 0.0;
-        foreach($jobOrder->parts_needed ?? [] as $p) {
-            $qty = isset($p['quantity']) ? (int)$p['quantity'] : 1;
-            $price = isset($p['unit_sale_price']) ? (float)$p['unit_sale_price'] : 0.0;
-            $partsTotal += $qty * $price;
-        }
-        
-        $laborTotal = 0.0;
-        if(!empty($jobOrder->issues) && is_array($jobOrder->issues)) {
-            foreach($jobOrder->issues as $issue) {
-                if (!empty($issue['type'])) {
-                    $svc = \App\Models\Service::where('name', $issue['type'])->first();
-                    if ($svc) $laborTotal += (float)$svc->labor_price;
-                }
-            }
-        }
-        
-        $estimatedTotal = $partsTotal + $laborTotal;
-        
+
+        // Each line carries the name and price agreed at intake, so the
+        // totals are a sum rather than a rebuild — and a later catalogue
+        // change cannot alter what this customer was quoted.
         return view('customer-portal.view', [
             'jobOrder' => $jobOrder,
-            'partsTotal' => $partsTotal,
-            'laborTotal' => $laborTotal,
-            'estimatedTotal' => $estimatedTotal,
+            'partsTotal' => $jobOrder->partsTotal(),
+            'laborTotal' => $jobOrder->laborTotal(),
+            'estimatedTotal' => $jobOrder->lineTotal(),
         ]);
     }
-    
+
     /**
      * Approve quote via customer portal.
      */
     public function approve(string $token): RedirectResponse
     {
         $jobOrder = JobOrder::where('portal_token', $token)->firstOrFail();
-        
+
         // Only allow approval if status is awaiting_approval
         if ($jobOrder->status->value !== 'awaiting_approval') {
             return redirect()->route('customer.portal.view', ['token' => $token])
                 ->with('error', 'This quote cannot be approved at this time.');
         }
-        
-        $jobOrder->approveByCustomer();
-        
+
+        app(JobOrderWorkflow::class)->approveByCustomer($jobOrder);
+
         return redirect()->route('customer.portal.view', ['token' => $token])
             ->with('success', 'Thank you! Your repair quote has been approved. We will begin work shortly.');
     }

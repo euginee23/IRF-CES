@@ -2,9 +2,13 @@
 
 use App\Mail\RestockRequestMail;
 use App\Models\Part;
+use App\Models\PartCategory;
+use App\Services\Inventory\InventoryService;
+use App\Services\JobOrders\JobOrderWorkflow;
 use App\Models\Supplier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -33,7 +37,8 @@ new class extends Component {
     // Form fields
     public string $name = '';
     public string $sku = '';
-    public string $category = '';
+    /** A part_categories id, as a string because it is bound to a <select>. */
+    public string $part_category_id = '';
     public string $description = '';
     public $in_stock = null;
     public $reorder_point = null;
@@ -95,24 +100,18 @@ new class extends Component {
         }
 
         if ($this->categoryFilter) {
-            $query->where('category', $this->categoryFilter);
+            $query->where('part_category_id', $this->categoryFilter);
         }
 
         if ($this->showLowStock) {
             $query->lowStock();
         }
 
-        $parts = $query->latest()->paginate($this->perPage);
-        $categories = collect([
-            'Display & Input Components',
-            'Power & Charging Components',
-            'Motherboard & Core Components',
-            'Camera & Audio Components',
-            'Network & Connectivity Components',
-            'Sensors & Security Components',
-            'Structural & Physical Components',
-            'Accessories & External Parts',
-        ]);
+        $parts = $query->with('partCategory')->latest()->paginate($this->perPage);
+
+        // Was a hardcoded list here, which meant adding a category needed a
+        // deploy and the filter could drift away from the parts themselves.
+        $categories = PartCategory::active()->ordered()->get();
         $lowStockCount = Part::lowStock()->count();
 
         $totalValue = (float) DB::table('parts')
@@ -125,6 +124,8 @@ new class extends Component {
 
         return [
             'parts' => $parts,
+            // What the shop owes customers but does not have on the shelf.
+            'shortfalls' => app(InventoryService::class)->shortfalls(),
             'categories' => $categories,
             'lowStockCount' => $lowStockCount,
             'suppliers' => $this->suppliers(),
@@ -150,7 +151,7 @@ new class extends Component {
         $this->selectedPart = Part::findOrFail($id);
         $this->name = $this->selectedPart->name;
         $this->sku = $this->selectedPart->sku;
-        $this->category = $this->selectedPart->category ?? '';
+        $this->part_category_id = (string) ($this->selectedPart->part_category_id ?? '');
         $this->description = $this->selectedPart->description ?? '';
         $this->in_stock = $this->selectedPart->in_stock;
         $this->reorder_point = $this->selectedPart->reorder_point;
@@ -169,7 +170,7 @@ new class extends Component {
         $validated = $this->validate([
             'name' => 'required|string|max:255',
             'sku' => 'required|string|max:255|unique:parts,sku,' . ($this->selectedPart->id ?? 'NULL'),
-            'category' => 'required|string|max:255',
+            'part_category_id' => ['required', Rule::exists('part_categories', 'id')],
             'description' => 'nullable|string',
             'in_stock' => 'required|integer|min:1',
             'reorder_point' => 'required|integer|min:1',
@@ -182,9 +183,31 @@ new class extends Component {
         ]);
 
         if ($this->isEditing && $this->selectedPart) {
+            // Stock is not an ordinary editable field: writing it straight to
+            // the column would move the shelf count without the ledger
+            // hearing about it, and the two would never agree again. The
+            // typed figure becomes an adjustment of the difference.
+            $target = (int) $validated['in_stock'];
+            $delta = $target - $this->selectedPart->in_stock;
+            unset($validated['in_stock']);
+
             $this->selectedPart->update($validated);
+
+            $released = $delta !== 0
+                ? app(InventoryService::class)->adjust(
+                    $this->selectedPart,
+                    $delta,
+                    note: 'Corrected on the inventory screen.',
+                )
+                : [];
+
+            foreach ($released as $jobOrder) {
+                app(JobOrderWorkflow::class)->partsArrived($jobOrder);
+            }
+
             $message = 'Part updated successfully.';
         } else {
+            // A new part's opening stock is ledgered by PartObserver.
             Part::create($validated);
             $message = 'Part created successfully.';
         }
@@ -203,11 +226,16 @@ new class extends Component {
     public function adjustStock(int $id, string $type): void
     {
         $part = Part::findOrFail($id);
-        
-        if ($type === 'add') {
-            $part->addStock(1);
-        } elseif ($type === 'subtract' && $part->in_stock > 0) {
-            $part->deductStock(1);
+
+        // Through the service, so the change lands in the ledger and a stock
+        // increase gets a chance to clear somebody's backorder.
+        $released = $type === 'add'
+            ? app(InventoryService::class)->receive($part, 1, note: 'Added from the inventory screen.')
+            : app(InventoryService::class)->adjust($part, -1, note: 'Removed from the inventory screen.');
+
+        foreach ($released as $jobOrder) {
+            app(JobOrderWorkflow::class)->partsArrived($jobOrder);
+            $this->dispatch('success', message: "Parts arrived — {$jobOrder->job_order_number} can proceed.");
         }
     }
 
@@ -365,7 +393,7 @@ new class extends Component {
     {
         $this->name = '';
         $this->sku = '';
-        $this->category = '';
+        $this->part_category_id = '';
         $this->description = '';
         $this->in_stock = null;
         $this->reorder_point = null;
@@ -408,6 +436,65 @@ new class extends Component {
                     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Manage spare parts stock and reorder points</p>
                 </div>
             </div>
+
+            {{-- Parts owed to customers that are not on the shelf. Shown
+                 above the catalogue because it is the one thing here that
+                 someone is waiting on. --}}
+            @if($shortfalls->isNotEmpty())
+                <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-orange-200 dark:border-orange-800 overflow-hidden">
+                    <div class="bg-orange-50 dark:bg-orange-900/20 px-6 py-4 border-b border-orange-100 dark:border-orange-800">
+                        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                            </svg>
+                            Parts to Order
+                        </h2>
+                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                            Repairs are waiting on these. Receiving stock assigns it to whoever has waited longest.
+                        </p>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-zinc-50 dark:bg-zinc-800/50">
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Part</th>
+                                    <th class="px-6 py-3 text-center text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Needed</th>
+                                    <th class="px-6 py-3 text-center text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Available</th>
+                                    <th class="px-6 py-3 text-center text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Repairs</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Waiting Since</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Supplier</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                                @foreach($shortfalls as $shortfall)
+                                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <div class="font-medium text-zinc-900 dark:text-white">{{ $shortfall->part?->name ?? 'Unknown part' }}</div>
+                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $shortfall->part?->sku }}</div>
+                                        </td>
+                                        <td class="px-6 py-4 text-center">
+                                            <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-900/30">
+                                                {{ $shortfall->needed }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-center text-sm text-zinc-700 dark:text-zinc-300">
+                                            {{ $shortfall->part?->availableStock() ?? 0 }}
+                                        </td>
+                                        <td class="px-6 py-4 text-center text-sm text-zinc-700 dark:text-zinc-300">{{ $shortfall->job_order_count }}</td>
+                                        <td class="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">
+                                            {{ \Carbon\Carbon::parse($shortfall->waiting_since)->diffForHumans() }}
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">
+                                            {{ $shortfall->part?->supplier ?: '—' }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
 
             <!-- Stats Cards with Modern Design -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -540,7 +627,7 @@ new class extends Component {
                                 >
                                     <option value="">All Categories</option>
                                     @foreach($categories as $cat)
-                                        <option value="{{ $cat }}">{{ $cat }}</option>
+                                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                                     @endforeach
                                 </select>
                                 <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -641,9 +728,9 @@ new class extends Component {
                                         </div>
                                     </td>
                                     <td class="px-6 py-5">
-                                        @if($part->category)
+                                        @if($part->category_name)
                                             <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700">
-                                                {{ $part->category }}
+                                                {{ $part->category_name }}
                                             </span>
                                         @else
                                             <span class="text-xs text-zinc-400">—</span>
@@ -940,12 +1027,12 @@ new class extends Component {
                                         </label>
                                         <div class="relative">
                                             <select
-                                                wire:model="category"
+                                                wire:model="part_category_id"
                                                 class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                                             >
                                                 <option value="">Select Category</option>
                                                 @foreach($categories as $cat)
-                                                    <option value="{{ $cat }}">{{ $cat }}</option>
+                                                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                                                 @endforeach
                                             </select>
                                             <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
@@ -954,7 +1041,7 @@ new class extends Component {
                                                 </svg>
                                             </div>
                                         </div>
-                                        @error('category') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        @error('part_category_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                     </div>
 
                                     <!-- Supplier -->

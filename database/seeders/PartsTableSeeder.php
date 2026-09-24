@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Part;
+use App\Models\PartCategory;
 use Illuminate\Database\Seeder;
 
 class PartsTableSeeder extends Seeder
@@ -117,11 +118,22 @@ class PartsTableSeeder extends Seeder
             $rawCategory = $p['category'] ?? null;
             $normalizedCategory = $categoryMap[$rawCategory] ?? $rawCategory;
 
+            // Resolve to a real category row, creating one for any name the
+            // map does not already cover so a new part never loses its
+            // grouping just because PartCategorySeeder has not caught up.
+            $categoryId = $normalizedCategory
+                ? PartCategory::firstOrCreate(
+                    ['name' => $normalizedCategory],
+                    ['sort_order' => count(PartCategorySeeder::CATEGORIES), 'is_active' => true],
+                )->id
+                : null;
+
             Part::updateOrCreate([
                 'sku' => $p['sku'],
             ], array_merge($p, [
                 'description' => $p['name'],
                 'category' => $normalizedCategory,
+                'part_category_id' => $categoryId,
                 'reorder_point' => isset($p['reorder_point']) ? $p['reorder_point'] : 5,
                 'supplier' => 'Local Supplier',
                 'model' => $p['model'] ?? null,

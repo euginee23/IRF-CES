@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\JobOrderStatus;
+use App\Enums\Role;
 use App\Models\JobOrder;
 use App\Models\Part;
+use App\Models\Payment;
 use App\Models\RepairQuoteRequest;
 use App\Models\Service;
 use App\Models\Supplier;
@@ -29,7 +31,17 @@ new class extends Component {
                 'completed_orders' => JobOrder::where('status', JobOrderStatus::COMPLETED)->count(),
                 'delivered_orders' => JobOrder::where('status', JobOrderStatus::DELIVERED)->count(),
                 'cancelled_orders' => JobOrder::where('status', JobOrderStatus::CANCELLED)->count(),
-                'total_revenue' => JobOrder::whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED])->sum('final_cost') ?: JobOrder::whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED])->sum('estimated_cost'),
+                // Cash actually collected, not a sum of estimates. The old
+                // expression was `sum(final_cost) ?: sum(estimated_cost)`,
+                // and because final_cost was never written the fallback
+                // always won — then the first real final_cost would have
+                // silently dropped every other order's estimate from the
+                // total. There is no fallback now, so that cannot recur.
+                'total_revenue' => Payment::counted()->sum('amount'),
+                'revenue_this_month' => Payment::counted()
+                    ->whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])
+                    ->sum('amount'),
+                'outstanding_balance' => $this->outstandingBalance(),
                 'this_month_orders' => JobOrder::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
 
                 // Parts / Inventory
@@ -52,7 +64,82 @@ new class extends Component {
                 'counter_staff' => User::where('role', 'counter_staff')->count(),
             ],
             'recentOrders' => JobOrder::with(['receivedBy', 'assignedTo'])->latest()->take(5)->get(),
+            'workload' => $this->technicianWorkload(),
         ];
+    }
+
+    /**
+     * What customers still owe on repairs that have been finished.
+     *
+     * Summed in SQL rather than per job order, because this runs on every
+     * dashboard render.
+     */
+    private function outstandingBalance(): float
+    {
+        $billed = JobOrder::whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED])
+            ->selectRaw('COALESCE(SUM(COALESCE(NULLIF(final_cost, 0), estimated_cost, 0)), 0) as total')
+            ->value('total');
+
+        $collected = Payment::counted()
+            ->whereHas('jobOrder', fn ($q) => $q->whereIn('status', [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED]))
+            ->sum('amount');
+
+        return round(max(0, (float) $billed - (float) $collected), 2);
+    }
+
+    /**
+     * What each technician is currently carrying.
+     *
+     * The administrator could previously see totals but not who was holding
+     * what, so a technician quietly sitting on a week-old repair was invisible
+     * from here.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function technicianWorkload()
+    {
+        $openStatuses = [
+            JobOrderStatus::PENDING,
+            JobOrderStatus::ASSIGNED,
+            JobOrderStatus::AWAITING_APPROVAL,
+            JobOrderStatus::APPROVED,
+            JobOrderStatus::IN_PROGRESS,
+            JobOrderStatus::DONE,
+        ];
+
+        return User::where('role', Role::TECHNICIAN)
+            ->withCount([
+                'assignedJobOrders as open_count' => fn ($q) => $q->whereIn('status', $openStatuses),
+                'assignedJobOrders as in_progress_count' => fn ($q) => $q->where('status', JobOrderStatus::IN_PROGRESS),
+                'assignedJobOrders as overdue_count' => fn ($q) => $q
+                    ->whereIn('status', $openStatuses)
+                    ->whereNotNull('expected_completion_date')
+                    ->whereDate('expected_completion_date', '<', today()),
+                'assignedJobOrders as completed_this_month_count' => fn ($q) => $q
+                    ->whereNotNull('completed_at')
+                    ->whereMonth('completed_at', now()->month)
+                    ->whereYear('completed_at', now()->year),
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $technician) use ($openStatuses) {
+                // The oldest thing still on this bench, which is the number
+                // worth acting on — an average hides one stuck repair.
+                $oldest = $technician->assignedJobOrders()
+                    ->whereIn('status', $openStatuses)
+                    ->oldest()
+                    ->first();
+
+                return [
+                    'technician' => $technician,
+                    'open' => $technician->open_count,
+                    'in_progress' => $technician->in_progress_count,
+                    'overdue' => $technician->overdue_count,
+                    'completed_this_month' => $technician->completed_this_month_count,
+                    'oldest_open_days' => $oldest ? $oldest->created_at->diffInDays(now()) : null,
+                    'oldest_open_number' => $oldest?->job_order_number,
+                ];
+            });
     }
 };
 
@@ -321,7 +408,78 @@ new class extends Component {
         </div>
     </div>
 
-    <!-- Row 4: Recent Job Orders -->
+    <!-- Row 4: Technician Workload -->
+    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Technician Workload</h2>
+                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Who is carrying what right now</p>
+            </div>
+            <a href="{{ route('job-orders.index') }}" wire:navigate
+                class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                View all job orders
+            </a>
+        </div>
+
+        @if($workload->isEmpty())
+            <div class="p-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                No technicians have been added yet.
+            </div>
+        @else
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-zinc-50 dark:bg-zinc-800/50">
+                            <th class="px-6 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Technician</th>
+                            <th class="px-6 py-3 text-center text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Open</th>
+                            <th class="px-6 py-3 text-center text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">In Progress</th>
+                            <th class="px-6 py-3 text-center text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Overdue</th>
+                            <th class="px-6 py-3 text-center text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Done This Month</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Oldest Open</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        @foreach($workload as $row)
+                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-3">
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                                            {{ $row['technician']->initials() }}
+                                        </span>
+                                        <span class="font-medium text-zinc-900 dark:text-white">{{ $row['technician']->name }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center text-sm font-semibold text-zinc-900 dark:text-white">{{ $row['open'] }}</td>
+                                <td class="px-6 py-4 text-center text-sm text-zinc-700 dark:text-zinc-300">{{ $row['in_progress'] }}</td>
+                                <td class="px-6 py-4 text-center">
+                                    @if($row['overdue'] > 0)
+                                        <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30">
+                                            {{ $row['overdue'] }}
+                                        </span>
+                                    @else
+                                        <span class="text-sm text-zinc-400">&mdash;</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 text-center text-sm text-zinc-700 dark:text-zinc-300">{{ $row['completed_this_month'] }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    @if($row['oldest_open_number'])
+                                        <span class="font-medium text-zinc-900 dark:text-white">{{ $row['oldest_open_number'] }}</span>
+                                        <span class="text-zinc-500 dark:text-zinc-400">
+                                            &middot; {{ $row['oldest_open_days'] }}{{ $row['oldest_open_days'] == 1 ? ' day' : ' days' }} old
+                                        </span>
+                                    @else
+                                        <span class="text-zinc-400">Nothing open</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+
+    <!-- Row 5: Recent Job Orders -->
     <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
         <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
             <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Recent Job Orders</h2>

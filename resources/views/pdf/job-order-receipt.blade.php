@@ -232,15 +232,15 @@
 
     @php $partsTotal = 0; @endphp
 
-    @foreach($jobOrder->parts_needed ?? [] as $part)
+    @foreach($jobOrder->parts as $part)
       @php
-        $qty = $part['quantity'] ?? 1;
-        $unit = $part['unit_sale_price'] ?? 0;
+        $qty = $part->quantity;
+        $unit = (float) $part->unit_sale_price;
         $line = $qty * $unit;
         $partsTotal += $line;
       @endphp
       <tr>
-        <td>{{ $part['part_name'] ?? 'N/A' }}</td>
+        <td>{{ $part->part_name }}</td>
         <td class="center">{{ $qty }}</td>
         <td class="right">₱{{ number_format($unit, 2) }}</td>
         <td class="right">₱{{ number_format($line, 2) }}</td>
@@ -252,11 +252,11 @@
       $laborCost = max($totalCost - $partsTotal, 0);
 
       $serviceDescription = '';
-      if(!empty($jobOrder->issues) && count($jobOrder->issues) > 0) {
+      if($jobOrder->services->isNotEmpty()) {
         $descs = [];
-        foreach($jobOrder->issues as $issue) {
-          $t = $issue['type'] ?? 'Service';
-          if(!empty($issue['diagnosis'])) $t .= ' - '.$issue['diagnosis'];
+        foreach($jobOrder->services as $issue) {
+          $t = $issue->service_name;
+          if($issue->diagnosis) $t .= ' - '.$issue->diagnosis;
           $descs[] = $t;
         }
         $serviceDescription = implode(', ', $descs);
@@ -288,6 +288,27 @@
   <div class="notes">
     <strong>Notes & Terms</strong>
     <div style="margin-top:6px">Payment due upon receipt. Please keep this invoice for your records.</div>
+  </div>
+
+  {{-- Claim stub: the part the customer tears off and keeps. The tracking
+       code is set in large type because it gets read out over the phone. --}}
+  <div style="margin-top:28px; border-top:2px dashed #999; padding-top:14px">
+    <table style="width:100%; border-collapse:collapse">
+      <tr>
+        <td style="vertical-align:middle">
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#777">Your tracking code</div>
+          <div style="font-size:30px; font-weight:bold; letter-spacing:4px; margin-top:2px">{{ $jobOrder->tracking_code }}</div>
+          <div style="font-size:10px; color:#777; margin-top:4px">Job order {{ $jobOrder->job_order_number }}</div>
+        </td>
+        <td style="vertical-align:middle; text-align:right; width:46%">
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#777">Track your repair</div>
+          <div style="font-size:11px; margin-top:3px">{{ route('customer.portal.index') }}</div>
+          <div style="font-size:10px; color:#777; margin-top:6px">
+            {{ $jobOrder->customer_name }} &middot; {{ $jobOrder->device_brand }} {{ $jobOrder->device_model }}
+          </div>
+        </td>
+      </tr>
+    </table>
   </div>
 
   <div class="footer">

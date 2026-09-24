@@ -119,15 +119,17 @@
                                             </p>
                                             <p class="mt-1.5 font-medium">
                                                 @if($emailAvailable)
-                                                    Use Email instead, or ask IPROG to approve a sender name.
+                                                    Use Email instead, or set SMS_DRIVER=routing to send these
+                                                    through a provider that carries them.
                                                 @else
-                                                    This customer has no email either — you will need to phone them.
+                                                    This customer has no email either — you will need to phone them,
+                                                    or set SMS_DRIVER=routing to reach this network.
                                                 @endif
                                             </p>
                                         </div>
                                     </div>
                                 </div>
-                            @elseif(config('sms.default') !== 'iprogsms')
+                            @elseif(! in_array(config('sms.default'), ['iprogsms', 'routing'], true))
                                 <p class="mt-2 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>

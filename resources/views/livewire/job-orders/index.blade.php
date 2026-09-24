@@ -1,10 +1,18 @@
 <?php
 
 use App\Enums\JobOrderStatus;
+use App\Enums\Role;
 use App\Mail\JobCompletedMail;
 use App\Models\JobOrder;
 use App\Models\Part;
 use App\Models\Service;
+use App\Enums\PaymentMethod;
+use App\Exceptions\UnpaidBalance;
+use App\Models\Payment;
+use App\Models\User;
+use App\Services\Payments\PaymentService;
+use Illuminate\Validation\Rule;
+use App\Services\JobOrders\JobOrderWorkflow;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -14,71 +22,125 @@ new class extends Component {
 
     public string $search = '';
     public string $statusFilter = '';
+
+    /** A technician's id, or '' for every technician. */
+    public string $technicianFilter = '';
+
+    /** '' | 'unassigned' | 'overdue' — the two queues the counter chases. */
+    public string $assignmentFilter = '';
+
     public ?JobOrder $selectedJobOrder = null;
     public bool $showViewModal = false;
 
-    private function hydrateJobOrderDetails(JobOrder $jobOrder): JobOrder
-    {
-        $parts = $jobOrder->parts_needed ?? [];
-        if (is_array($parts) && count($parts) > 0) {
-            $partIds = collect($parts)
-                ->pluck('part_id')
-                ->filter()
-                ->unique()
-                ->values();
-
-            $partMap = $partIds->isNotEmpty()
-                ? Part::whereIn('id', $partIds)->get()->keyBy('id')
-                : collect();
-
-            foreach ($parts as $idx => $p) {
-                $parts[$idx]['quantity'] = isset($p['quantity']) ? (int) $p['quantity'] : 1;
-
-                if (empty($p['part_name']) && !empty($p['part_id']) && isset($partMap[$p['part_id']])) {
-                    $partModel = $partMap[$p['part_id']];
-                    $parts[$idx]['part_name'] = $partModel->name;
-                    $parts[$idx]['unit_sale_price'] = (float) $partModel->unit_sale_price;
-                } else {
-                    $parts[$idx]['part_name'] = $parts[$idx]['part_name'] ?? 'N/A';
-                    $parts[$idx]['unit_sale_price'] = isset($parts[$idx]['unit_sale_price'])
-                        ? (float) $parts[$idx]['unit_sale_price']
-                        : 0.0;
-                }
-            }
-
-            $jobOrder->parts_needed = $parts;
-        }
-
-        $issues = $jobOrder->issues ?? [];
-        if (is_array($issues) && count($issues) > 0) {
-            $serviceNames = collect($issues)
-                ->pluck('type')
-                ->filter()
-                ->unique()
-                ->values();
-
-            $serviceMap = $serviceNames->isNotEmpty()
-                ? Service::whereIn('name', $serviceNames)->get()->keyBy('name')
-                : collect();
-
-            foreach ($issues as $idx => $issue) {
-                $service = !empty($issue['type']) ? ($serviceMap[$issue['type']] ?? null) : null;
-                $issues[$idx]['labor_price'] = $service ? (float) $service->labor_price : 0.0;
-            }
-
-            $jobOrder->issues = $issues;
-        }
-
-        return $jobOrder;
-    }
+    // Take payment
+    public bool $showPaymentModal = false;
+    public $paymentAmount = null;
+    public string $paymentMethod = 'cash';
+    public string $paymentReference = '';
+    public string $paymentNote = '';
 
     public function viewJobOrder(int $id): void
     {
-        $job = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
-        $job = $this->hydrateJobOrderDetails($job);
+        // parts and services carry their own names and prices now, so there
+        // is nothing left to hydrate by hand.
+        $job = JobOrder::with(['receivedBy', 'assignedTo', 'parts', 'services'])
+            ->visibleTo(auth()->user())
+            ->findOrFail($id);
 
         $this->selectedJobOrder = $job;
         $this->showViewModal = true;
+    }
+
+    /**
+     * The selected repair's history, for the modal's timeline.
+     *
+     * A method rather than a query in the Blade so it runs when the modal is
+     * rendered, not on every keystroke elsewhere on the page.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\JobOrderEvent>
+     */
+    /** @return \Illuminate\Support\Collection<int, Payment> */
+    public function selectedJobOrderPayments()
+    {
+        if (! $this->selectedJobOrder) {
+            return collect();
+        }
+
+        return $this->selectedJobOrder->payments()->with('receivedBy')->get();
+    }
+
+    public function selectedJobOrderEvents()
+    {
+        if (! $this->selectedJobOrder) {
+            return collect();
+        }
+
+        return $this->selectedJobOrder->events()->with('user')->get();
+    }
+
+    public function openPaymentModal(int $id): void
+    {
+        $jobOrder = $this->visible()->findOrFail($id);
+
+        $this->selectedJobOrder = $jobOrder;
+        // Pre-filled with the balance, which is what is taken most of the
+        // time; staff can type less for a deposit.
+        $this->paymentAmount = $jobOrder->balance() > 0 ? $jobOrder->balance() : null;
+        $this->paymentMethod = PaymentMethod::CASH->value;
+        $this->paymentReference = '';
+        $this->paymentNote = '';
+        $this->resetErrorBag();
+        $this->showPaymentModal = true;
+    }
+
+    public function closePaymentModal(): void
+    {
+        $this->showPaymentModal = false;
+        $this->resetErrorBag();
+    }
+
+    public function takePayment(): void
+    {
+        if (! $this->selectedJobOrder) {
+            return;
+        }
+
+        $validated = $this->validate([
+            'paymentAmount' => 'required|numeric|min:0.01',
+            'paymentMethod' => ['required', Rule::enum(PaymentMethod::class)],
+            'paymentReference' => 'nullable|string|max:255',
+            'paymentNote' => 'nullable|string|max:255',
+        ], [
+            'paymentAmount.min' => 'A payment must be for more than zero.',
+        ]);
+
+        $payment = app(PaymentService::class)->take(
+            jobOrder: $this->selectedJobOrder,
+            amount: (float) $validated['paymentAmount'],
+            method: PaymentMethod::from($validated['paymentMethod']),
+            referenceNo: $validated['paymentReference'] ?: null,
+            note: $validated['paymentNote'] ?: null,
+        );
+
+        $this->selectedJobOrder->refresh();
+        $this->showPaymentModal = false;
+
+        $this->dispatch('success', message: "Payment recorded — receipt {$payment->receipt_number}.");
+    }
+
+    public function downloadPaymentReceipt(int $paymentId)
+    {
+        $payment = Payment::with(['jobOrder', 'receivedBy'])->findOrFail($paymentId);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.payment-receipt', [
+            'payment' => $payment,
+            'jobOrder' => $payment->jobOrder,
+        ]);
+
+        return response()->streamDownload(
+            fn () => print ($pdf->output()),
+            'receipt-' . $payment->receipt_number . '.pdf',
+        );
     }
 
     public function closeViewModal(): void
@@ -89,9 +151,8 @@ new class extends Component {
 
     public function downloadReceipt(int $id)
     {
-        $jobOrder = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
-        $jobOrder = $this->hydrateJobOrderDetails($jobOrder);
-        
+        $jobOrder = JobOrder::with(['receivedBy', 'assignedTo', 'parts', 'services'])->findOrFail($id);
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.job-order-receipt', [
             'jobOrder' => $jobOrder
         ]);
@@ -103,36 +164,18 @@ new class extends Component {
 
     public function sendQuoteApproval(int $id): void
     {
-        $jobOrder = JobOrder::with(['receivedBy', 'assignedTo'])->findOrFail($id);
+        $jobOrder = JobOrder::with(['receivedBy', 'assignedTo', 'parts', 'services'])->findOrFail($id);
         
         if (!$jobOrder->customer_email) {
             $this->dispatch('error', message: 'Customer email is not available.');
             return;
         }
-        
-        // Calculate costs
-        $partsTotal = 0.0;
-        foreach($jobOrder->parts_needed ?? [] as $p) {
-            $qty = isset($p['quantity']) ? (int)$p['quantity'] : 1;
-            $price = isset($p['unit_sale_price']) ? (float)$p['unit_sale_price'] : 0.0;
-            $partsTotal += $qty * $price;
-        }
-        
-        $laborTotal = 0.0;
-        if(!empty($jobOrder->issues) && is_array($jobOrder->issues)) {
-            $serviceNames = collect($jobOrder->issues)->pluck('type')->filter()->unique();
-            $serviceMap = $serviceNames->isNotEmpty()
-                ? Service::whereIn('name', $serviceNames)->pluck('labor_price', 'name')
-                : collect();
 
-            foreach($jobOrder->issues as $issue) {
-                if (!empty($issue['type'])) {
-                    $laborTotal += (float) ($serviceMap[$issue['type']] ?? 0);
-                }
-            }
-        }
-        
-        $estimatedTotal = $partsTotal + $laborTotal;
+        // Totals come off the lines' own snapshots, so the figure quoted here
+        // is the one the customer will be billed.
+        $partsTotal = $jobOrder->partsTotal();
+        $laborTotal = $jobOrder->laborTotal();
+        $estimatedTotal = $jobOrder->lineTotal();
         
         // Send email
         try {
@@ -140,7 +183,7 @@ new class extends Component {
                 ->send(new \App\Mail\QuoteApprovalMail($jobOrder, $partsTotal, $laborTotal, $estimatedTotal));
             
             // Update status to awaiting approval
-            $jobOrder->update(['status' => \App\Enums\JobOrderStatus::AWAITING_APPROVAL]);
+            app(JobOrderWorkflow::class)->transitionTo($jobOrder, JobOrderStatus::AWAITING_APPROVAL);
             
             $this->dispatch('success', message: 'Quote approval email sent successfully to ' . $jobOrder->customer_email);
         } catch (\Exception $e) {
@@ -152,7 +195,7 @@ new class extends Component {
     {
         $jobOrder = JobOrder::findOrFail($id);
         
-        $jobOrder->approveManually();
+        app(JobOrderWorkflow::class)->approveManually($jobOrder);
         
         $this->dispatch('success', message: 'Job order manually approved successfully.');
     }
@@ -166,10 +209,7 @@ new class extends Component {
             return;
         }
 
-        $jobOrder->update([
-            'status' => JobOrderStatus::COMPLETED,
-            'completed_at' => now(),
-        ]);
+        app(JobOrderWorkflow::class)->transitionTo($jobOrder, JobOrderStatus::COMPLETED);
 
         if ($jobOrder->customer_email) {
             try {
@@ -192,12 +232,27 @@ new class extends Component {
             return;
         }
 
-        $jobOrder->update([
-            'status' => JobOrderStatus::DELIVERED,
-            'delivered_at' => now(),
-        ]);
+        try {
+            app(JobOrderWorkflow::class)->transitionTo(
+                $jobOrder,
+                JobOrderStatus::DELIVERED,
+                // An administrator can release an unpaid device; counter staff
+                // take the balance first.
+                allowUnpaidDelivery: auth()->user()->isAdministrator(),
+            );
+        } catch (UnpaidBalance $e) {
+            $this->dispatch('error', message: $e->getMessage());
 
-        $this->dispatch('success', message: 'Job order marked as delivered.');
+            return;
+        }
+
+        $message = 'Job order marked as delivered.';
+
+        if ($jobOrder->fresh()->balance() > 0) {
+            $message .= ' Note: PHP ' . number_format($jobOrder->fresh()->balance(), 2) . ' is still owed.';
+        }
+
+        $this->dispatch('success', message: $message);
     }
 
     public function layout()
@@ -210,9 +265,20 @@ new class extends Component {
         return __('Job Orders');
     }
 
+    /**
+     * Job orders this user may see, before any filter is applied.
+     *
+     * A fresh builder each call, because Eloquent builders are mutable and the
+     * stats below would otherwise inherit the list's filters.
+     */
+    private function visible()
+    {
+        return JobOrder::query()->visibleTo(auth()->user());
+    }
+
     public function with(): array
     {
-        $query = JobOrder::with(['receivedBy', 'assignedTo']);
+        $query = $this->visible()->with(['receivedBy', 'assignedTo']);
 
         if ($this->search) {
             $query->where(function($q) {
@@ -228,20 +294,52 @@ new class extends Component {
             $query->where('status', $this->statusFilter);
         }
 
+        if ($this->technicianFilter !== '') {
+            $query->where('assigned_to', $this->technicianFilter);
+        }
+
+        if ($this->assignmentFilter === 'unassigned') {
+            $query->whereNull('assigned_to');
+        } elseif ($this->assignmentFilter === 'overdue') {
+            $this->scopeOverdue($query);
+        }
+
         $jobOrders = $query->latest()->paginate(15);
-        
+
         return [
             'jobOrders' => $jobOrders,
+            'technicians' => User::where('role', Role::TECHNICIAN)->orderBy('name')->get(),
             'stats' => [
-                'total' => JobOrder::count(),
-                'pending' => JobOrder::where('status', JobOrderStatus::PENDING)->count(),
-                'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
-                'approved' => JobOrder::where('status', JobOrderStatus::APPROVED)->count(),
-                'in_progress' => JobOrder::where('status', JobOrderStatus::IN_PROGRESS)->count(),
-                'done' => JobOrder::where('status', JobOrderStatus::DONE)->count(),
-                'completed' => JobOrder::where('status', JobOrderStatus::COMPLETED)->count(),
+                'total' => $this->visible()->count(),
+                'pending' => $this->visible()->where('status', JobOrderStatus::PENDING)->count(),
+                'awaiting_approval' => $this->visible()->where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
+                'approved' => $this->visible()->where('status', JobOrderStatus::APPROVED)->count(),
+                'in_progress' => $this->visible()->where('status', JobOrderStatus::IN_PROGRESS)->count(),
+                'done' => $this->visible()->where('status', JobOrderStatus::DONE)->count(),
+                'completed' => $this->visible()->where('status', JobOrderStatus::COMPLETED)->count(),
+                'unassigned' => $this->visible()->whereNull('assigned_to')->count(),
+                'overdue' => $this->scopeOverdue($this->visible())->count(),
             ],
         ];
+    }
+
+    /**
+     * Past its promised date and still on the bench.
+     *
+     * A finished repair is never overdue, however late it was — chasing it
+     * would tell the counter to act on something already dealt with.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<JobOrder>  $query
+     */
+    private function scopeOverdue($query)
+    {
+        return $query->whereNotNull('expected_completion_date')
+            ->whereDate('expected_completion_date', '<', today())
+            ->whereNotIn('status', [
+                JobOrderStatus::COMPLETED,
+                JobOrderStatus::DELIVERED,
+                JobOrderStatus::CANCELLED,
+            ]);
     }
 
     public function delete(int $id): void
@@ -264,6 +362,23 @@ new class extends Component {
 
     public function updatedStatusFilter(): void
     {
+        $this->resetPage();
+    }
+
+    public function updatedTechnicianFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedAssignmentFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    /** Jump straight to one of the chase queues from its stat tile. */
+    public function showQueue(string $queue): void
+    {
+        $this->assignmentFilter = $this->assignmentFilter === $queue ? '' : $queue;
         $this->resetPage();
     }
 }; ?>
@@ -412,7 +527,7 @@ new class extends Component {
                 </div>
             </div>
             <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     <div class="space-y-2">
                         <label for="search" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                             Search
@@ -453,6 +568,38 @@ new class extends Component {
                             <option value="cancelled">Cancelled</option>
                         </select>
                     </div>
+
+                    <div class="space-y-2">
+                        <label for="technicianFilter" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                            Technician
+                        </label>
+                        <select
+                            id="technicianFilter"
+                            wire:model.live="technicianFilter"
+                            class="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                            <option value="">All Technicians</option>
+                            @foreach($technicians as $technician)
+                                <option value="{{ $technician->id }}">{{ $technician->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                {{-- The two queues the counter actually chases. --}}
+                <div class="mt-5 flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 me-1">Quick filters:</span>
+
+                    <button type="button" wire:click="showQueue('unassigned')"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors cursor-pointer {{ $assignmentFilter === 'unassigned' ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700' : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 dark:hover:bg-zinc-700' }}">
+                        Unassigned
+                        <span class="px-1.5 py-0.5 text-xs font-bold rounded-full bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">{{ $stats['unassigned'] }}</span>
+                    </button>
+
+                    <button type="button" wire:click="showQueue('overdue')"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors cursor-pointer {{ $assignmentFilter === 'overdue' ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700' : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 dark:hover:bg-zinc-700' }}">
+                        Overdue
+                        <span class="px-1.5 py-0.5 text-xs font-bold rounded-full bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">{{ $stats['overdue'] }}</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -489,13 +636,13 @@ new class extends Component {
                     </div>
                     <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-2">No Job Orders Found</h3>
                     <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                        @if($search || $statusFilter)
+                        @if($search || $statusFilter || $technicianFilter || $assignmentFilter)
                             Try adjusting your filters
                         @else
                             Get started by creating your first job order
                         @endif
                     </p>
-                    @if(!$search && !$statusFilter)
+                    @if(!$search && !$statusFilter && !$technicianFilter && !$assignmentFilter)
                         <a href="{{ route('job-orders.create') }}"
                             class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -766,23 +913,9 @@ new class extends Component {
                                 <div class="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 border border-emerald-200 dark:border-emerald-800">
                                     <h4 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide mb-4">Cost Summary</h4>
                                     @php
-                                        // Calculate parts total from stored parts_needed
-                                        $partsTotal = 0.0;
-                                        foreach($selectedJobOrder->parts_needed ?? [] as $p) {
-                                            $qty = isset($p['quantity']) ? (int)$p['quantity'] : 1;
-                                            $price = isset($p['unit_sale_price']) ? (float)$p['unit_sale_price'] : 0.0;
-                                            $partsTotal += $qty * $price;
-                                        }
-
-                                        // Calculate labor total from issues
-                                        $laborTotal = 0.0;
-                                        if(!empty($selectedJobOrder->issues) && is_array($selectedJobOrder->issues)) {
-                                            foreach($selectedJobOrder->issues as $issue) {
-                                                $laborTotal += (float)($issue['labor_price'] ?? 0);
-                                            }
-                                        }
-
-                                        $displayTotal = $selectedJobOrder->final_cost ?? $selectedJobOrder->estimated_cost ?? ($partsTotal + $laborTotal);
+                                        $partsTotal = $selectedJobOrder->partsTotal();
+                                        $laborTotal = $selectedJobOrder->laborTotal();
+                                        $displayTotal = $selectedJobOrder->final_cost ?? $selectedJobOrder->estimated_cost ?? $selectedJobOrder->lineTotal();
                                     @endphp
 
                                     <div class="space-y-3">
@@ -965,7 +1098,7 @@ new class extends Component {
                                 </div>
 
                                 <!-- Services Required -->
-                                @if($selectedJobOrder->issues && count($selectedJobOrder->issues) > 0)
+                                @if($selectedJobOrder->services->isNotEmpty())
                                     <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                                         <div class="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 px-5 py-3 border-b border-indigo-100 dark:border-indigo-800">
                                             <h4 class="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -977,7 +1110,7 @@ new class extends Component {
                                         </div>
                                         <div class="p-5">
                                             <div class="space-y-3">
-                                                @foreach($selectedJobOrder->issues as $issue)
+                                                @foreach($selectedJobOrder->services as $issue)
                                                     <div class="flex items-start gap-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
                                                         <div class="mt-0.5">
                                                             <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -986,17 +1119,17 @@ new class extends Component {
                                                         </div>
                                                         <div class="flex-1">
                                                             <div class="flex items-center justify-between">
-                                                                <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $issue['type'] ?? 'N/A' }}</p>
+                                                                <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $issue->service_name }}</p>
                                                                 <div class="text-sm font-semibold text-zinc-900 dark:text-white">
-                                                                    @if(isset($issue['labor_price']) && (float)$issue['labor_price'] > 0)
-                                                                        Labor: ₱{{ number_format((float)$issue['labor_price'], 2) }}
+                                                                    @if((float) $issue->labor_price > 0)
+                                                                        Labor: ₱{{ number_format((float) $issue->labor_price, 2) }}
                                                                     @else
                                                                         —
                                                                     @endif
                                                                 </div>
                                                             </div>
-                                                            @if(!empty($issue['diagnosis']))
-                                                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ $issue['diagnosis'] }}</p>
+                                                            @if($issue->diagnosis)
+                                                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ $issue->diagnosis }}</p>
                                                             @endif
                                                         </div>
                                                     </div>
@@ -1007,7 +1140,7 @@ new class extends Component {
                                 @endif
 
                                 <!-- Parts Needed -->
-                                @if($selectedJobOrder->parts_needed && count($selectedJobOrder->parts_needed) > 0)
+                                @if($selectedJobOrder->parts->isNotEmpty())
                                     <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                                         <div class="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 px-5 py-3 border-b border-emerald-100 dark:border-emerald-800">
                                             <h4 class="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -1029,11 +1162,11 @@ new class extends Component {
                                                         </tr>
                                                     </thead>
                                                     <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                                        @foreach($selectedJobOrder->parts_needed as $part)
+                                                        @foreach($selectedJobOrder->parts as $part)
                                                             @php
-                                                                $partName = $part['part_name'] ?? 'N/A';
-                                                                $unitPrice = isset($part['unit_sale_price']) ? (float)$part['unit_sale_price'] : 0.0;
-                                                                $qty = isset($part['quantity']) ? (int)$part['quantity'] : 1;
+                                                                $partName = $part->part_name;
+                                                                $unitPrice = (float) $part->unit_sale_price;
+                                                                $qty = $part->quantity;
                                                             @endphp
                                                             <tr>
                                                                 <td class="py-2 font-medium text-zinc-900 dark:text-white">{{ $partName }}</td>
@@ -1065,6 +1198,116 @@ new class extends Component {
                                         </div>
                                     </div>
                                 @endif
+
+                                <!-- Payments -->
+                                <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 px-5 py-3 border-b border-emerald-100 dark:border-emerald-800 flex items-center justify-between gap-3">
+                                        <h4 class="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            Payments
+                                        </h4>
+                                        <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full {{ $selectedJobOrder->paymentStatus()->badgeClasses() }}">
+                                            {{ $selectedJobOrder->paymentStatus()->label() }}
+                                        </span>
+                                    </div>
+
+                                    <div class="p-5 space-y-4">
+                                        <div class="grid grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <p class="text-xs uppercase text-zinc-500 dark:text-zinc-400 font-semibold">Billed</p>
+                                                <p class="mt-1 text-lg font-bold text-zinc-900 dark:text-white">₱{{ number_format($selectedJobOrder->amountDue(), 2) }}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs uppercase text-zinc-500 dark:text-zinc-400 font-semibold">Paid</p>
+                                                <p class="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">₱{{ number_format($selectedJobOrder->amountPaid(), 2) }}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs uppercase text-zinc-500 dark:text-zinc-400 font-semibold">Balance</p>
+                                                <p class="mt-1 text-lg font-bold {{ $selectedJobOrder->balance() > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-white' }}">
+                                                    ₱{{ number_format($selectedJobOrder->balance(), 2) }}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        @php $payments = $this->selectedJobOrderPayments(); @endphp
+
+                                        @if($payments->isNotEmpty())
+                                            <div class="overflow-x-auto">
+                                                <table class="w-full text-sm">
+                                                    <thead>
+                                                        <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                                                            <th class="text-left py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase">Receipt</th>
+                                                            <th class="text-left py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase">Method</th>
+                                                            <th class="text-left py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase">Taken</th>
+                                                            <th class="text-right py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase">Amount</th>
+                                                            <th></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                                        @foreach($payments as $payment)
+                                                            <tr class="{{ $payment->isVoided() ? 'opacity-50 line-through' : '' }}">
+                                                                <td class="py-2 font-medium text-zinc-900 dark:text-white">{{ $payment->receipt_number }}</td>
+                                                                <td class="py-2 text-zinc-700 dark:text-zinc-300">
+                                                                    {{ $payment->method->label() }}
+                                                                    @if($payment->reference_no)
+                                                                        <span class="text-xs text-zinc-500">({{ $payment->reference_no }})</span>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="py-2 text-zinc-600 dark:text-zinc-400 text-xs">
+                                                                    {{ $payment->paid_at->format('d M Y, g:ia') }}
+                                                                    @if($payment->receivedBy)
+                                                                        &middot; {{ $payment->receivedBy->name }}
+                                                                    @endif
+                                                                </td>
+                                                                <td class="py-2 text-right font-semibold text-zinc-900 dark:text-white">₱{{ number_format((float) $payment->amount, 2) }}</td>
+                                                                <td class="py-2 text-right">
+                                                                    @unless($payment->isVoided())
+                                                                        <button type="button" wire:click="downloadPaymentReceipt({{ $payment->id }})"
+                                                                            class="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">
+                                                                            Receipt
+                                                                        </button>
+                                                                    @endunless
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <p class="text-sm text-zinc-500 dark:text-zinc-400">No payments taken yet.</p>
+                                        @endif
+
+                                        @if($selectedJobOrder->balance() > 0)
+                                            <button type="button" wire:click="openPaymentModal({{ $selectedJobOrder->id }})"
+                                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow transition-colors cursor-pointer">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                                </svg>
+                                                Take Payment
+                                            </button>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <!-- Repair History -->
+                                <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 px-5 py-3 border-b border-indigo-100 dark:border-indigo-800">
+                                        <h4 class="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            Repair History
+                                        </h4>
+                                    </div>
+                                    <div class="p-5">
+                                        @include('partials.job-order-timeline', [
+                                            'timelineEvents' => $this->selectedJobOrderEvents(),
+                                            'timelineTitle' => '',
+                                        ])
+                                    </div>
+                                </div>
 
                                 <!-- Assignment Information -->
                                 <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
@@ -1197,4 +1440,81 @@ new class extends Component {
                 </div>
             </div>
         </div>
+    {{-- Take payment --}}
+    @if($showPaymentModal && $selectedJobOrder)
+        <div class="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true">
+            <div class="flex min-h-screen items-center justify-center p-4">
+                <div class="fixed inset-0 bg-black/50" wire:click="closePaymentModal"></div>
+
+                <div class="relative w-full max-w-md bg-white dark:bg-zinc-800 rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
+                        <h3 class="text-lg font-semibold text-zinc-900 dark:text-white">Take Payment</h3>
+                        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                            {{ $selectedJobOrder->job_order_number }} &middot; {{ $selectedJobOrder->customer_name }}
+                        </p>
+                    </div>
+
+                    <form wire:submit="takePayment" class="p-6 space-y-4">
+                        <div class="flex justify-between items-baseline rounded-xl bg-zinc-50 dark:bg-zinc-900 px-4 py-3">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">Balance due</span>
+                            <span class="text-xl font-bold text-zinc-900 dark:text-white">₱{{ number_format($selectedJobOrder->balance(), 2) }}</span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                Amount <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" step="0.01" min="0.01" wire:model="paymentAmount"
+                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+                            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Enter less than the balance to record a deposit.</p>
+                            @error('paymentAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                Method <span class="text-red-500">*</span>
+                            </label>
+                            <select wire:model.live="paymentMethod"
+                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                                @foreach(\App\Enums\PaymentMethod::options() as $method)
+                                    <option value="{{ $method->value }}">{{ $method->label() }}</option>
+                                @endforeach
+                            </select>
+                            @error('paymentMethod') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- Cash has nothing to reference; everything else does. --}}
+                        @if(\App\Enums\PaymentMethod::from($paymentMethod)->expectsReference())
+                            <div>
+                                <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                    Reference number
+                                </label>
+                                <input type="text" wire:model="paymentReference" placeholder="GCash ref, bank txn, card auth"
+                                    class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+                                @error('paymentReference') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        @endif
+
+                        <div>
+                            <label class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Note</label>
+                            <input type="text" wire:model="paymentNote"
+                                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+                            @error('paymentNote') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-2">
+                            <button type="button" wire:click="closePaymentModal"
+                                class="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-lg transition-colors cursor-pointer">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                class="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors cursor-pointer">
+                                Record Payment
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

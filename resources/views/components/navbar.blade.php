@@ -21,11 +21,20 @@
                         <a href="{{ route('staff.index') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Staff
                         </a>
+                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
+                            Quotes
+                        </a>
                         <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Inventory
                         </a>
+                        <a href="{{ route('admin.part-categories') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/part-categories') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
+                            Categories
+                        </a>
                         <a href="{{ route('admin.suppliers') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/suppliers') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Suppliers
+                        </a>
+                        <a href="{{ route('admin.reports.income') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/reports*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
+                            Income
                         </a>
                         <a href="{{ route('admin.services') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/services') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Services
@@ -148,7 +157,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div x-show="mobileOpen" x-transition class="mt-2 space-y-1" style="display: none;">
+                {{-- Scrollable, because this list lives inside a position:fixed
+                     navbar: a fixed element does not scroll with the page, so
+                     once the menu is taller than the viewport the bottom links
+                     are unreachable with no scrollbar to get to them. Leaves
+                     room for the bar above it. --}}
+                <div x-show="mobileOpen" x-transition class="mt-2 space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto overscroll-contain" style="display: none;">
                     <a href="{{ url('/dashboard') }}" class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('dashboard') || request()->is('admin/dashboard') || request()->is('technician/dashboard') || request()->is('counter/dashboard') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                         Dashboard
                     </a>
@@ -156,8 +170,17 @@
                         <a href="{{ route('staff.index') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('staff*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Staff
                         </a>
+                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Quotes
+                        </a>
                         <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Inventory
+                        </a>
+                        <a href="{{ route('admin.part-categories') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/part-categories') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Categories
+                        </a>
+                        <a href="{{ route('admin.reports.income') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/reports*') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
+                            Income
                         </a>
                         <a href="{{ route('admin.services') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/services') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Services

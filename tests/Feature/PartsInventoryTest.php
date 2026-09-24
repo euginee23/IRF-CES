@@ -2,8 +2,15 @@
 
 use App\Enums\Role;
 use App\Models\Part;
+use App\Models\PartCategory;
 use App\Models\User;
 use Livewire\Volt\Volt;
+
+/** Resolve a category name to its id, creating the category on first use. */
+function partCategoryId(string $name): int
+{
+    return PartCategory::firstOrCreate(['name' => $name])->id;
+}
 
 beforeEach(function () {
     $this->admin = User::factory()->create([
@@ -36,7 +43,7 @@ test('parts inventory page displays parts list', function () {
     Part::create([
         'name' => 'iPhone 13 LCD Screen',
         'sku' => 'LCD-IP13-001',
-        'category' => 'Display & Input Components',
+        'part_category_id' => partCategoryId('Display & Input Components'),
         'in_stock' => 10,
         'reorder_point' => 5,
         'unit_cost_price' => 2500.00,
@@ -60,7 +67,7 @@ test('administrator can create a new part', function () {
         ->test('admin.parts-inventory')
         ->set('name', 'Samsung Galaxy S21 Battery')
         ->set('sku', 'BAT-S21-001')
-        ->set('category', 'Power & Charging Components')
+        ->set('part_category_id', partCategoryId('Power & Charging Components'))
         ->set('description', 'Original Samsung battery')
         ->set('in_stock', 15)
         ->set('reorder_point', 5)
@@ -76,7 +83,7 @@ test('administrator can create a new part', function () {
     $this->assertDatabaseHas('parts', [
         'name' => 'Samsung Galaxy S21 Battery',
         'sku' => 'BAT-S21-001',
-        'category' => 'Power & Charging Components',
+        'part_category_id' => partCategoryId('Power & Charging Components'),
         'manufacturer' => 'Samsung',
         'model' => 'Galaxy S21',
     ]);
@@ -87,7 +94,7 @@ test('technician can create a new part', function () {
         ->test('admin.parts-inventory')
         ->set('name', 'Xiaomi Redmi Note 10 Screen')
         ->set('sku', 'LCD-RN10-001')
-        ->set('category', 'Display & Input Components')
+        ->set('part_category_id', partCategoryId('Display & Input Components'))
         ->set('in_stock', 8)
         ->set('reorder_point', 3)
         ->set('unit_cost_price', 1200.00)
@@ -157,7 +164,7 @@ test('administrator can edit existing part', function () {
     $part = Part::create([
         'name' => 'Original Name',
         'sku' => 'ORIGINAL-001',
-        'category' => 'Power & Charging Components',
+        'part_category_id' => partCategoryId('Power & Charging Components'),
         'in_stock' => 10,
         'reorder_point' => 5,
         'unit_cost_price' => 1000.00,
@@ -193,7 +200,7 @@ test('sku uniqueness is ignored when updating same part', function () {
     $part = Part::create([
         'name' => 'Test Part',
         'sku' => 'TEST-SKU-001',
-        'category' => 'Display & Input Components',
+        'part_category_id' => partCategoryId('Display & Input Components'),
         'manufacturer' => 'Apple',
         'model' => 'iPhone 13',
         'in_stock' => 10,
@@ -328,7 +335,7 @@ test('parts inventory can be filtered by category', function () {
     Part::create([
         'name' => 'LCD Screen',
         'sku' => 'LCD-001',
-        'category' => 'Display & Input Components',
+        'part_category_id' => partCategoryId('Display & Input Components'),
         'in_stock' => 10,
         'reorder_point' => 5,
         'unit_cost_price' => 2000.00,
@@ -339,7 +346,7 @@ test('parts inventory can be filtered by category', function () {
     Part::create([
         'name' => 'Battery Pack',
         'sku' => 'BAT-001',
-        'category' => 'Power & Charging Components',
+        'part_category_id' => partCategoryId('Power & Charging Components'),
         'in_stock' => 8,
         'reorder_point' => 3,
         'unit_cost_price' => 1000.00,
@@ -349,7 +356,7 @@ test('parts inventory can be filtered by category', function () {
 
     Volt::actingAs($this->admin)
         ->test('admin.parts-inventory')
-        ->set('categoryFilter', 'Display & Input Components')
+        ->set('categoryFilter', (string) partCategoryId('Display & Input Components'))
         ->assertSee('LCD Screen')
         ->assertDontSee('Battery Pack');
 });
@@ -528,7 +535,7 @@ test('modal opens correctly for editing part', function () {
     $part = Part::create([
         'name' => 'Test Part',
         'sku' => 'TEST-001',
-        'category' => 'Display & Input Components',
+        'part_category_id' => partCategoryId('Display & Input Components'),
         'manufacturer' => 'Samsung',
         'model' => 'Galaxy S21',
         'in_stock' => 10,

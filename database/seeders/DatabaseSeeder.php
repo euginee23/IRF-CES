@@ -6,7 +6,6 @@ use App\Enums\Role;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Database\Seeders\PartsTableSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -25,8 +24,6 @@ class DatabaseSeeder extends Seeder
                 'role' => Role::ADMINISTRATOR,
             ]
         );
-
-       
 
         User::firstOrCreate(
             ['email' => 'technician@example.com'],
@@ -48,7 +45,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // Seed parts inventory
+        // Categories first: the parts seeder resolves each part onto one.
+        $this->call(PartCategorySeeder::class);
         $this->call(PartsTableSeeder::class);
     }
 }

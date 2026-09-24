@@ -99,6 +99,58 @@ return [
             'log_channel' => env('SMS_LOG_CHANNEL', 'sms'),
         ],
 
+        /*
+         * Picks a provider per message, by the recipient's network.
+         *
+         * Set SMS_DRIVER=routing to use it. IPROG keeps Globe, TM and DITO;
+         * Smart, TNT and Sun go to a provider that can actually carry them,
+         * instead of being refused for want of an approved sender name.
+         */
+        'routing' => [
+            'driver' => 'routing',
+
+            // Which provider is asked what network a number is on. It need
+            // not be the one that ends up sending.
+            'detector' => env('SMS_DETECTOR', 'iprogsms'),
+
+            'map' => [
+                \App\Services\Sms\IprogSmsSender::NETWORK_GLOBE => env('SMS_ROUTE_GLOBE', 'iprogsms'),
+                \App\Services\Sms\IprogSmsSender::NETWORK_DITO => env('SMS_ROUTE_DITO', 'iprogsms'),
+                \App\Services\Sms\IprogSmsSender::NETWORK_SMART => env('SMS_ROUTE_SMART', 'semaphore'),
+            ],
+
+            // Used when the network cannot be determined, and as the second
+            // attempt when the mapped provider refuses the message.
+            'fallback' => env('SMS_ROUTE_FALLBACK', 'semaphore'),
+
+            // A second attempt costs a second credit, so it is worth being
+            // able to switch off.
+            'retry_with_fallback' => env('SMS_ROUTE_RETRY', true),
+
+            'log_channel' => env('SMS_LOG_CHANNEL', 'sms'),
+        ],
+
+        /*
+         * Semaphore (https://semaphore.co) — reaches Smart, TNT and Sun on a
+         * shared sender name with nothing to register in advance, which is
+         * why it is the second provider rather than a second IPROG account.
+         */
+        'semaphore' => [
+            'driver' => 'semaphore',
+
+            'api_key' => env('SEMAPHORE_API_KEY'),
+
+            'base_url' => env('SEMAPHORE_URL', \App\Services\Sms\SemaphoreSmsSender::BASE_URL),
+
+            // Unlike IPROG, Semaphore does take a sender name per request.
+            // Blank uses the account default, which needs no approval.
+            'sender_name' => env('SEMAPHORE_SENDER_NAME', ''),
+
+            'timeout' => env('SEMAPHORE_TIMEOUT', 15),
+
+            'log_channel' => env('SMS_LOG_CHANNEL', 'sms'),
+        ],
+
         'log' => [
             'driver' => 'log',
             'channel' => env('SMS_LOG_CHANNEL', 'sms'),

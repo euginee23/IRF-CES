@@ -6,8 +6,12 @@ use App\Models\RepairQuoteRequest;
 use App\Models\User;
 use App\Models\Service;
 use App\Models\Part;
+use App\Models\PartCategory;
 use App\Enums\Role;
 use Illuminate\Validation\Rule;
+use App\Jobs\SendCustomerMessage;
+use App\Services\JobOrders\JobOrderLines;
+use App\Services\Messaging\MessageTemplates;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -106,25 +110,9 @@ new class extends Component {
 
     public function getEstimatedCostProperty()
     {
-        $serviceTotal = 0;
-        $partsTotal = 0;
-
-        // Calculate services total from database labor_price
-        foreach ($this->services as $service) {
-            if (!empty($service['type'])) {
-                $dbService = Service::where('name', $service['type'])->first();
-                if ($dbService) {
-                    $serviceTotal += $dbService->labor_price;
-                }
-            }
-        }
-
-        // Calculate parts total from selected parts
-        foreach ($this->selectedParts as $part) {
-            $partsTotal += ($part['unit_sale_price'] ?? 0) * ($part['quantity'] ?? 1);
-        }
-
-        return $serviceTotal + $partsTotal;
+        // One query per side rather than one per service: this runs on every
+        // render of the intake form, including each keystroke in the search.
+        return app(JobOrderLines::class)->previewTotal($this->services, $this->selectedParts);
     }
 
     public function getJobOrderNumberPreviewProperty()
@@ -161,7 +149,10 @@ new class extends Component {
 
     public function with(): array
     {
-        $partsQuery = Part::where('in_stock', '>', 0)->where('is_active', true);
+        // Out-of-stock parts stay in the picker: a phone can be booked in
+        // for a part the shop has to order, which is the whole point of
+        // backorders. The row says what is available.
+        $partsQuery = Part::where('is_active', true);
 
         if ($this->partSearch) {
             $partsQuery->where(function($q) {
@@ -171,17 +162,14 @@ new class extends Component {
         }
 
         if ($this->partCategoryFilter) {
-            $partsQuery->where('category', $this->partCategoryFilter);
+            $partsQuery->where('part_category_id', $this->partCategoryFilter);
         }
 
         $availableParts = $partsQuery->orderBy('name')->get();
         
-        $categories = Part::where('is_active', true)
-            ->whereNotNull('category')
-            ->distinct()
-            ->pluck('category')
-            ->sort()
-            ->values();
+        // The managed list, so this picker and the admin inventory screen
+        // always offer the same categories.
+        $categories = PartCategory::active()->ordered()->get();
 
         return [
             'manufacturers' => $this->manufacturers(),
@@ -190,6 +178,32 @@ new class extends Component {
             'availableParts' => $availableParts,
             'partCategories' => $categories,
         ];
+    }
+
+    /**
+     * Text the customer their tracking code.
+     *
+     * Queued: the provider call can take 15 seconds, and the counter has
+     * someone standing in front of them. A failure must not lose the job
+     * order that was just booked in, so this never throws into the form.
+     */
+    private function sendTrackingCode(JobOrder $jobOrder): void
+    {
+        $channel = SendCustomerMessage::bestChannelFor($jobOrder);
+
+        if ($channel === null) {
+            return;
+        }
+
+        $rendered = MessageTemplates::renderSystem('repair_booked', $channel, $jobOrder);
+
+        SendCustomerMessage::dispatch(
+            $jobOrder,
+            $channel,
+            $rendered['body'],
+            $rendered['subject'],
+            'repair_booked',
+        );
     }
 
     public function save(): void
@@ -217,28 +231,11 @@ new class extends Component {
             $validated['expected_completion_date'] = null;
         }
 
-        $validated['issues'] = $validated['services'];
-        unset($validated['services']);
-
-        $validated['parts_needed'] = $validated['selectedParts'] ?? [];
-        // Enrich parts data with current part name and unit price so the job record
-        // remains meaningful even if the Part model is later modified or deleted.
-        if (is_array($validated['parts_needed']) && count($validated['parts_needed']) > 0) {
-            foreach ($validated['parts_needed'] as $i => $p) {
-                $partModel = \App\Models\Part::find($p['part_id'] ?? null);
-                if ($partModel) {
-                    $validated['parts_needed'][$i]['part_name'] = $partModel->name;
-                    $validated['parts_needed'][$i]['unit_sale_price'] = (float) $partModel->unit_sale_price;
-                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
-                } else {
-                    // Keep stored values safe
-                    $validated['parts_needed'][$i]['part_name'] = $p['part_name'] ?? 'N/A';
-                    $validated['parts_needed'][$i]['unit_sale_price'] = isset($p['unit_sale_price']) ? (float) $p['unit_sale_price'] : 0.0;
-                    $validated['parts_needed'][$i]['quantity'] = (int) ($p['quantity'] ?? 1);
-                }
-            }
-        }
-        unset($validated['selectedParts']);
+        // Lines live in their own tables now; the job order itself only keeps
+        // the agreed total.
+        $services = $validated['services'];
+        $parts = $validated['selectedParts'] ?? [];
+        unset($validated['services'], $validated['selectedParts']);
 
         $validated['estimated_cost'] = $this->estimated_cost;
 
@@ -249,6 +246,10 @@ new class extends Component {
                 : JobOrderStatus::ASSIGNED,
             'received_by' => auth()->id(),
         ]));
+
+        app(JobOrderLines::class)->sync($jobOrder, $services, $parts);
+
+        $this->sendTrackingCode($jobOrder);
 
         $this->dispatch('success', message: 'Job order created successfully: ' . $jobOrder->job_order_number);
         $this->redirect(route('job-orders.index'), navigate: true);
@@ -490,7 +491,7 @@ new class extends Component {
                         <select wire:model.live="partCategoryFilter" class="px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900">
                             <option value="">All Categories</option>
                             @foreach($partCategories as $category)
-                                <option value="{{ $category }}">{{ $category }}</option>
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -509,7 +510,17 @@ new class extends Component {
                                     @php $isSelected = in_array($part->id, array_column($selectedParts, 'part_id')); @endphp
                                     <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 {{ $isSelected ? 'bg-emerald-50 dark:bg-emerald-900/10' : '' }}">
                                         <td class="px-2 py-1.5">{{ $part->name }}</td>
-                                        <td class="px-2 py-1.5 text-center">{{ $part->in_stock }}</td>
+                                        <td class="px-2 py-1.5 text-center">
+                                            @if($part->availableStock() > 0)
+                                                {{ $part->availableStock() }}
+                                            @else
+                                                {{-- Still addable: the repair is booked and the part
+                                                     is ordered in. --}}
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-900/30">
+                                                    Order in
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td class="px-2 py-1.5 text-center">
                                             @if($isSelected)
                                                 <span class="text-emerald-600 text-xs">✓ Added</span>

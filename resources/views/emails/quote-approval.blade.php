@@ -322,15 +322,15 @@
                     <p style="margin: 0; line-height: 1.6; color: #333;">{{ $jobOrder->issue_description }}</p>
                 </div>
 
-                @if($jobOrder->issues && count($jobOrder->issues) > 0)
+                @if($jobOrder->services->isNotEmpty())
                 <div class="section">
                     <div class="section-title">Services Required</div>
                     <ul class="services-list">
-                        @foreach($jobOrder->issues as $issue)
+                        @foreach($jobOrder->services as $issue)
                             <li>
-                                <strong>{{ $issue['type'] ?? 'N/A' }}</strong>
-                                @if(!empty($issue['description']))
-                                    <br><span>{{ $issue['description'] }}</span>
+                                <strong>{{ $issue->service_name }}</strong>
+                                @if($issue->diagnosis)
+                                    <br><span>{{ $issue->diagnosis }}</span>
                                 @endif
                             </li>
                         @endforeach
@@ -338,7 +338,7 @@
                 </div>
                 @endif
 
-                @if($jobOrder->parts_needed && count($jobOrder->parts_needed) > 0)
+                @if($jobOrder->parts->isNotEmpty())
                 <div class="section">
                     <div class="section-title">Parts Needed</div>
                     <table class="parts-table">
@@ -351,12 +351,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($jobOrder->parts_needed as $part)
+                            @foreach($jobOrder->parts as $part)
                             <tr>
-                                <td>{{ $part['part_name'] ?? 'N/A' }}</td>
-                                <td>{{ $part['quantity'] ?? 1 }}</td>
-                                <td>₱{{ number_format($part['unit_sale_price'] ?? 0, 2) }}</td>
-                                <td>₱{{ number_format(($part['quantity'] ?? 1) * ($part['unit_sale_price'] ?? 0), 2) }}</td>
+                                <td>{{ $part->part_name }}</td>
+                                <td>{{ $part->quantity }}</td>
+                                <td>₱{{ number_format((float) $part->unit_sale_price, 2) }}</td>
+                                <td>₱{{ number_format($part->lineTotal(), 2) }}</td>
                             </tr>
                             @endforeach
                         </tbody>

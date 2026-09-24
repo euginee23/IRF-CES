@@ -2,7 +2,6 @@
 
 use App\Enums\Role;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
 
 Route::get('/', function () {
@@ -25,8 +24,8 @@ Route::prefix('portal')->name('customer.portal.')->group(function () {
 // Redirect to role-specific dashboard after login
 Route::get('dashboard', function () {
     $user = auth()->user();
-    
-    return match($user->role) {
+
+    return match ($user->role) {
         Role::ADMINISTRATOR => redirect()->route('admin.dashboard'),
         Role::TECHNICIAN => redirect()->route('technician.dashboard'),
         Role::COUNTER_STAFF => redirect()->route('counter.dashboard'),
@@ -36,7 +35,10 @@ Route::get('dashboard', function () {
 // Administrator routes
 Route::middleware(['auth', 'role:administrator'])->prefix('admin')->name('admin.')->group(function () {
     Volt::route('dashboard', 'admin.dashboard')->name('dashboard');
+    Volt::route('quote-requests', 'admin.quote-requests')->name('quote-requests');
     Volt::route('parts-inventory', 'admin.parts-inventory')->name('parts-inventory');
+    Volt::route('part-categories', 'admin.part-categories')->name('part-categories');
+    Volt::route('reports/income', 'admin.reports.income')->name('reports.income');
     Volt::route('suppliers', 'admin.suppliers')->name('suppliers');
     Volt::route('services', 'admin.services')->name('services');
 });

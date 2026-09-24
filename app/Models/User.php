@@ -93,4 +93,17 @@ class User extends Authenticatable
     {
         return $this->hasMany(Skillset::class);
     }
+
+    /**
+     * Repairs on this technician's bench.
+     *
+     * Named for the column rather than the model, because a user is also tied
+     * to job orders they merely received at the counter.
+     *
+     * @see \App\Models\JobOrder::receivedBy()
+     */
+    public function assignedJobOrders()
+    {
+        return $this->hasMany(JobOrder::class, 'assigned_to');
+    }
 }

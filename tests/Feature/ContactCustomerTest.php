@@ -246,6 +246,7 @@ test('what each template actually costs to send, sender name included', function
         'awaiting_approval' => 2,    // 209 + 22 = 231; also carries the link
         'ready_for_pickup' => 1,     // 99 + 22 = 121
         'parts_delayed' => 1,        // 132 + 22 = 154
+        'parts_arrived' => 1,        // 107 + 22 = 129
     ]);
 });
 

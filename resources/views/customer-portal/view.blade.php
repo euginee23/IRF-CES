@@ -46,6 +46,12 @@
                             <h1 class="text-2xl font-bold text-white">{{ $jobOrder->job_order_number }}</h1>
                         </div>
                         <p class="text-indigo-100 text-sm">Submitted on {{ $jobOrder->created_at->format('F d, Y') }}</p>
+                        @if($jobOrder->tracking_code)
+                            <p class="mt-2 text-indigo-100 text-sm">
+                                Tracking code
+                                <span class="ms-1 inline-block rounded bg-white/15 px-2 py-0.5 font-mono text-base font-bold tracking-widest text-white">{{ $jobOrder->tracking_code }}</span>
+                            </p>
+                        @endif
                     </div>
                     @php
                         $statusColors = [
@@ -149,8 +155,49 @@
                     </div>
                 </div>
 
+                {{-- Repair progress: the customer-visible events merged with the
+                     messages we actually sent them. --}}
+                @php $timeline = $jobOrder->customerTimeline(); @endphp
+
+                @if($timeline->isNotEmpty())
+                <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 px-6 py-4 border-b border-indigo-100 dark:border-indigo-800">
+                        <h2 class="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Repair Progress
+                        </h2>
+                    </div>
+
+                    <div class="p-6">
+                        <ol class="relative space-y-5 ps-7">
+                            <span class="absolute start-[9px] top-2 bottom-2 w-px bg-zinc-200 dark:bg-zinc-700" aria-hidden="true"></span>
+
+                            @foreach($timeline as $entry)
+                                @php $isMessage = in_array($entry['kind'], ['sms', 'email'], true); @endphp
+                                <li class="relative">
+                                    <span class="absolute -start-7 top-1 flex h-4 w-4 items-center justify-center rounded-full ring-4 ring-white dark:ring-zinc-800 {{ $isMessage ? 'bg-zinc-300 dark:bg-zinc-600' : 'bg-indigo-500' }}"></span>
+
+                                    <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $entry['title'] }}</p>
+                                        <time class="text-xs text-zinc-500 dark:text-zinc-400" datetime="{{ $entry['at']->toIso8601String() }}">
+                                            {{ $entry['at']->format('d M Y, g:ia') }}
+                                        </time>
+                                    </div>
+
+                                    @if($entry['body'])
+                                        <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-line">{{ $entry['body'] }}</p>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ol>
+                    </div>
+                </div>
+                @endif
+
                 <!-- Services Required -->
-                @if($jobOrder->issues && count($jobOrder->issues) > 0)
+                @if($jobOrder->services->isNotEmpty())
                 <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                     <div class="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 px-6 py-4 border-b border-indigo-100 dark:border-indigo-800">
                         <h2 class="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -162,22 +209,16 @@
                     </div>
                     <div class="p-6">
                         <div class="space-y-3">
-                            @foreach($jobOrder->issues as $issue)
-                                @php
-                                    $dbService = null;
-                                    if (!empty($issue['type'])) {
-                                        $dbService = \App\Models\Service::where('name', $issue['type'])->first();
-                                    }
-                                @endphp
+                            @foreach($jobOrder->services as $issue)
                                 <div class="flex items-start justify-between gap-3 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
                                     <div class="flex-1">
-                                        <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $issue['type'] ?? 'N/A' }}</p>
-                                        @if(!empty($issue['diagnosis']))
-                                            <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ $issue['diagnosis'] }}</p>
+                                        <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $issue->service_name }}</p>
+                                        @if($issue->diagnosis)
+                                            <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ $issue->diagnosis }}</p>
                                         @endif
                                     </div>
-                                    @if($dbService)
-                                        <div class="text-sm font-semibold text-zinc-900 dark:text-white">₱{{ number_format($dbService->labor_price, 2) }}</div>
+                                    @if((float) $issue->labor_price > 0)
+                                        <div class="text-sm font-semibold text-zinc-900 dark:text-white">₱{{ number_format((float) $issue->labor_price, 2) }}</div>
                                     @endif
                                 </div>
                             @endforeach
@@ -187,7 +228,7 @@
                 @endif
 
                 <!-- Parts Needed -->
-                @if($jobOrder->parts_needed && count($jobOrder->parts_needed) > 0)
+                @if($jobOrder->parts->isNotEmpty())
                 <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                     <div class="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 px-6 py-4 border-b border-emerald-100 dark:border-emerald-800">
                         <h2 class="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -209,11 +250,11 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                    @foreach($jobOrder->parts_needed as $part)
+                                    @foreach($jobOrder->parts as $part)
                                         @php
-                                            $partName = $part['part_name'] ?? 'N/A';
-                                            $unitPrice = isset($part['unit_sale_price']) ? (float)$part['unit_sale_price'] : 0;
-                                            $qty = isset($part['quantity']) ? (int)$part['quantity'] : 1;
+                                            $partName = $part->part_name;
+                                            $unitPrice = (float) $part->unit_sale_price;
+                                            $qty = $part->quantity;
                                         @endphp
                                         <tr>
                                             <td class="py-3 font-medium text-zinc-900 dark:text-white">{{ $partName }}</td>

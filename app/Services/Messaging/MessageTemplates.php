@@ -36,7 +36,28 @@ class MessageTemplates
      */
     public static function render(string $key, string $channel, Contactable $record): array
     {
-        $template = config("customer-messages.templates.{$key}");
+        return self::renderFrom("customer-messages.templates.{$key}", $key, $channel, $record);
+    }
+
+    /**
+     * Render one of the messages the system sends on its own.
+     *
+     * Separate from render() so these stay out of options(), which feeds the
+     * staff picker.
+     *
+     * @return array{subject: string, body: string}
+     */
+    public static function renderSystem(string $key, string $channel, Contactable $record): array
+    {
+        return self::renderFrom("customer-messages.system.{$key}", $key, $channel, $record);
+    }
+
+    /**
+     * @return array{subject: string, body: string}
+     */
+    private static function renderFrom(string $path, string $key, string $channel, Contactable $record): array
+    {
+        $template = config($path);
 
         if (! is_array($template)) {
             throw new InvalidArgumentException("Unknown message template [{$key}].");
@@ -45,7 +66,7 @@ class MessageTemplates
         $replacements = [];
 
         foreach ($record->messagePlaceholders() as $name => $value) {
-            $replacements[':' . $name] = $value;
+            $replacements[':'.$name] = $value;
         }
 
         // Unknown placeholders are deliberately left untouched by strtr, so a

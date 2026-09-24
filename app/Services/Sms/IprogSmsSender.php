@@ -23,7 +23,7 @@ use RuntimeException;
  * refuses them up front rather than spending a credit on a message that will
  * not arrive.
  */
-class IprogSmsSender implements SmsSender
+class IprogSmsSender implements NetworkDetector, SmsSender
 {
     /** Root of the IPROG SMS v1 API. */
     public const BASE_URL = 'https://sms.iprogtech.com/api/v1';
@@ -56,8 +56,7 @@ class IprogSmsSender implements SmsSender
         private readonly bool $senderNameApproved = false,
         /** Numbers can be ported between networks, so detection is not cached forever. */
         private readonly int $networkCacheTtl = 604800,
-    ) {
-    }
+    ) {}
 
     public function send(string $to, string $message): void
     {
@@ -100,14 +99,14 @@ class IprogSmsSender implements SmsSender
 
         if (! $response->successful() || ! is_array($body)) {
             throw new RuntimeException(
-                "IPROG SMS returned HTTP {$response->status()}: " . Str::limit($response->body(), 200)
+                "IPROG SMS returned HTTP {$response->status()}: ".Str::limit($response->body(), 200)
             );
         }
 
         // IPROG answers HTTP 200 even when a send fails, so the body's "status"
         // is the real outcome: 200 on success, otherwise 500 or "error".
         if ((int) ($body['status'] ?? 0) !== 200) {
-            throw new RuntimeException('IPROG SMS rejected the message: ' . self::describeError($body));
+            throw new RuntimeException('IPROG SMS rejected the message: '.self::describeError($body));
         }
 
         if ($this->logChannel !== null) {
@@ -145,8 +144,8 @@ class IprogSmsSender implements SmsSender
         if (($detected['is_smart_tnt'] ?? false) === true) {
             throw new RuntimeException(
                 'Smart, TNT and Sun numbers cannot be reached on this account. IPROG only delivers to '
-                . 'those networks under a custom sender name it has approved, so this message would be '
-                . 'charged but never arrive. Use email instead, or ask IPROG to approve a sender name.'
+                .'those networks under a custom sender name it has approved, so this message would be '
+                .'charged but never arrive. Use email instead, or ask IPROG to approve a sender name.'
             );
         }
     }
@@ -211,7 +210,7 @@ class IprogSmsSender implements SmsSender
 
     private function networkCacheKey(string $normalised): string
     {
-        return 'iprogsms:network:' . $normalised;
+        return 'iprogsms:network:'.$normalised;
     }
 
     /**
@@ -250,12 +249,12 @@ class IprogSmsSender implements SmsSender
     {
         $message = is_string($body['message'] ?? null) && $body['message'] !== ''
             ? $body['message']
-            : 'no reason given (status ' . json_encode($body['status'] ?? null) . ').';
+            : 'no reason given (status '.json_encode($body['status'] ?? null).').';
 
         $errors = $body['data']['errors'] ?? null;
 
         if (is_array($errors) && $errors !== []) {
-            $message .= ' (' . implode('; ', array_map('strval', $errors)) . ')';
+            $message .= ' ('.implode('; ', array_map('strval', $errors)).')';
         }
 
         return $message;

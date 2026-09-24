@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\JobOrderStatus;
+use App\Exceptions\InvalidStatusTransition;
 use App\Models\JobOrder;
+use App\Services\JobOrders\JobOrderWorkflow;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -14,29 +16,11 @@ new class extends Component {
 
     public function viewJobOrder(int $id): void
     {
-        $job = JobOrder::with(['receivedBy', 'assignedTo'])
-            ->where('assigned_to', auth()->id())
+        // Lines carry their own names and prices, so nothing needs
+        // normalising before display.
+        $job = JobOrder::with(['receivedBy', 'assignedTo', 'parts', 'services'])
+            ->visibleTo(auth()->user())
             ->findOrFail($id);
-
-        // Normalize parts data
-        $parts = $job->parts_needed ?? [];
-        if (is_array($parts) && count($parts) > 0) {
-            foreach ($parts as $idx => $p) {
-                $parts[$idx]['quantity'] = isset($p['quantity']) ? (int) $p['quantity'] : 1;
-
-                if (empty($p['part_name']) && !empty($p['part_id'])) {
-                    $partModel = \App\Models\Part::find($p['part_id']);
-                    if ($partModel) {
-                        $parts[$idx]['part_name'] = $partModel->name;
-                        $parts[$idx]['unit_sale_price'] = $partModel->unit_sale_price;
-                    } else {
-                        $parts[$idx]['part_name'] = $parts[$idx]['part_name'] ?? 'N/A';
-                        $parts[$idx]['unit_sale_price'] = $parts[$idx]['unit_sale_price'] ?? 0;
-                    }
-                }
-            }
-            $job->parts_needed = $parts;
-        }
 
         $this->selectedJobOrder = $job;
         $this->showViewModal = true;
@@ -50,11 +34,28 @@ new class extends Component {
 
     public function updateStatus(int $id, string $status): void
     {
-        $jobOrder = JobOrder::where('assigned_to', auth()->id())->findOrFail($id);
-        $newStatus = JobOrderStatus::from($status);
-        $jobOrder->update([
-            'status' => $newStatus,
-        ]);
+        $jobOrder = JobOrder::visibleTo(auth()->user())->findOrFail($id);
+
+        // The status arrives from the browser, so it is neither a known case
+        // nor a legal next step until proven. tryFrom keeps a junk value from
+        // throwing a raw ValueError at the user; the workflow rejects a real
+        // status that this repair cannot move to yet.
+        $newStatus = JobOrderStatus::tryFrom($status);
+
+        if ($newStatus === null) {
+            $this->dispatch('error', message: 'That is not a valid status.');
+
+            return;
+        }
+
+        try {
+            app(JobOrderWorkflow::class)->transitionTo($jobOrder, $newStatus);
+        } catch (InvalidStatusTransition $e) {
+            $this->dispatch('error', message: $e->getMessage());
+
+            return;
+        }
+
         $this->dispatch('success', message: 'Job order status updated successfully.');
     }
 
@@ -389,22 +390,9 @@ new class extends Component {
                             <div class="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 border border-emerald-200 dark:border-emerald-800">
                                 <h4 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide mb-4">Cost Summary</h4>
                                 @php
-                                    $partsTotal = 0.0;
-                                    foreach($selectedJobOrder->parts_needed ?? [] as $p) {
-                                        $qty = isset($p['quantity']) ? (int)$p['quantity'] : 1;
-                                        $price = isset($p['unit_sale_price']) ? (float)$p['unit_sale_price'] : 0.0;
-                                        $partsTotal += $qty * $price;
-                                    }
-                                    $laborTotal = 0.0;
-                                    if(!empty($selectedJobOrder->issues) && is_array($selectedJobOrder->issues)) {
-                                        foreach($selectedJobOrder->issues as $issue) {
-                                            if (!empty($issue['type'])) {
-                                                $svc = \App\Models\Service::where('name', $issue['type'])->first();
-                                                if ($svc) $laborTotal += (float)$svc->labor_price;
-                                            }
-                                        }
-                                    }
-                                    $displayTotal = $selectedJobOrder->final_cost ?? $selectedJobOrder->estimated_cost ?? ($partsTotal + $laborTotal);
+                                    $partsTotal = $selectedJobOrder->partsTotal();
+                                    $laborTotal = $selectedJobOrder->laborTotal();
+                                    $displayTotal = $selectedJobOrder->final_cost ?? $selectedJobOrder->estimated_cost ?? $selectedJobOrder->lineTotal();
                                 @endphp
 
                                 <div class="space-y-3">
@@ -532,7 +520,7 @@ new class extends Component {
                                 </div>
 
                                 <!-- Services Required -->
-                                @if($selectedJobOrder->issues && count($selectedJobOrder->issues) > 0)
+                                @if($selectedJobOrder->services->isNotEmpty())
                                     <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                                         <div class="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 px-5 py-3 border-b border-indigo-100 dark:border-indigo-800">
                                             <h4 class="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -544,13 +532,7 @@ new class extends Component {
                                         </div>
                                         <div class="p-5">
                                             <div class="space-y-3">
-                                                @foreach($selectedJobOrder->issues as $issue)
-                                                    @php
-                                                        $dbService = null;
-                                                        if (!empty($issue['type'])) {
-                                                            $dbService = \App\Models\Service::where('name', $issue['type'])->first();
-                                                        }
-                                                    @endphp
+                                                @foreach($selectedJobOrder->services as $issue)
                                                     <div class="flex items-start gap-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
                                                         <div class="mt-0.5">
                                                             <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -559,11 +541,11 @@ new class extends Component {
                                                         </div>
                                                         <div class="flex-1">
                                                             <div class="flex items-center justify-between">
-                                                                <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $issue['type'] ?? 'N/A' }}</p>
-                                                                <div class="text-sm font-semibold text-zinc-900 dark:text-white">@if($dbService)Labor: ₱{{ number_format($dbService->labor_price, 2) }} @else — @endif</div>
+                                                                <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $issue->service_name }}</p>
+                                                                <div class="text-sm font-semibold text-zinc-900 dark:text-white">@if((float) $issue->labor_price > 0)Labor: ₱{{ number_format((float) $issue->labor_price, 2) }} @else — @endif</div>
                                                             </div>
-                                                            @if(!empty($issue['diagnosis']))
-                                                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ $issue['diagnosis'] }}</p>
+                                                            @if($issue->diagnosis)
+                                                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ $issue->diagnosis }}</p>
                                                             @endif
                                                         </div>
                                                     </div>
@@ -574,7 +556,7 @@ new class extends Component {
                                 @endif
 
                                 <!-- Parts Needed -->
-                                @if($selectedJobOrder->parts_needed && count($selectedJobOrder->parts_needed) > 0)
+                                @if($selectedJobOrder->parts->isNotEmpty())
                                     <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                                         <div class="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 px-5 py-3 border-b border-emerald-100 dark:border-emerald-800">
                                             <h4 class="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -596,22 +578,11 @@ new class extends Component {
                                                         </tr>
                                                     </thead>
                                                     <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                                        @foreach($selectedJobOrder->parts_needed as $part)
+                                                        @foreach($selectedJobOrder->parts as $part)
                                                             @php
-                                                                $partName = $part['part_name'] ?? null;
-                                                                $unitPrice = isset($part['unit_sale_price']) ? (float)$part['unit_sale_price'] : null;
-                                                                $qty = isset($part['quantity']) ? (int)$part['quantity'] : 1;
-
-                                                                if (empty($partName) && !empty($part['part_id'])) {
-                                                                    $pm = \App\Models\Part::find($part['part_id']);
-                                                                    if ($pm) {
-                                                                        $partName = $pm->name;
-                                                                        $unitPrice = $unitPrice ?? $pm->unit_sale_price;
-                                                                    }
-                                                                }
-
-                                                                $partName = $partName ?? 'N/A';
-                                                                $unitPrice = $unitPrice ?? 0;
+                                                                $partName = $part->part_name;
+                                                                $unitPrice = (float) $part->unit_sale_price;
+                                                                $qty = $part->quantity;
                                                             @endphp
                                                             <tr>
                                                                 <td class="py-2 font-medium text-zinc-900 dark:text-white">{{ $partName }}</td>

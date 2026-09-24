@@ -27,6 +27,12 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Never the real provider: the suite would spend credits and text
+             real people. Tests that exercise a provider set their own driver
+             and fake the HTTP calls. -->
+        <env name="SMS_DRIVER" value="log"/>
+        <env name="IPROGSMS_TOKEN" value=""/>
+        <env name="SEMAPHORE_API_KEY" value=""/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
