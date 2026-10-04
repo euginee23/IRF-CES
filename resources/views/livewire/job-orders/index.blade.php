@@ -14,12 +14,16 @@ use App\Services\Payments\PaymentService;
 use Illuminate\Validation\Rule;
 use App\Services\JobOrders\JobOrderWorkflow;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
 new class extends Component {
     use WithPagination;
 
+    // In the URL so other screens can link straight to a job order — the
+    // income records link each payment to its repair this way.
+    #[Url(except: '')]
     public string $search = '';
     public string $statusFilter = '';
 
@@ -31,6 +35,26 @@ new class extends Component {
 
     public ?JobOrder $selectedJobOrder = null;
     public bool $showViewModal = false;
+
+    /**
+     * The job order just booked in, whose slip is offered at the top of the
+     * list. Held on the component because the session flash is gone by the
+     * next Livewire request — the first keystroke in search would hide it.
+     */
+    public ?int $printSlipId = null;
+
+    public function mount(): void
+    {
+        $this->printSlipId = session('print_slip');
+    }
+
+    public function dismissSlip(): void
+    {
+        $this->printSlipId = null;
+    }
+
+    /** The expected completion date as edited in the view modal. */
+    public string $expectedDate = '';
 
     // Take payment
     public bool $showPaymentModal = false;
@@ -48,7 +72,45 @@ new class extends Component {
             ->findOrFail($id);
 
         $this->selectedJobOrder = $job;
+        $this->expectedDate = $job->expected_completion_date?->toDateString() ?? '';
+        $this->resetErrorBag('expectedDate');
         $this->showViewModal = true;
+    }
+
+    /**
+     * Move the date the customer was promised.
+     *
+     * Recorded on the customer's timeline, because a promised date that
+     * silently changes is the first thing they ask about at the counter.
+     */
+    public function updateExpectedDate(): void
+    {
+        if (! $this->selectedJobOrder) {
+            return;
+        }
+
+        $this->validate([
+            'expectedDate' => 'required|date|after_or_equal:today',
+        ], [
+            'expectedDate.required' => 'Please pick a date.',
+            'expectedDate.after_or_equal' => 'The new date cannot be in the past.',
+        ]);
+
+        $jobOrder = $this->visible()->findOrFail($this->selectedJobOrder->id);
+        $old = $jobOrder->expected_completion_date;
+
+        $jobOrder->update(['expected_completion_date' => $this->expectedDate]);
+
+        if ($old === null || ! $old->isSameDay($jobOrder->expected_completion_date)) {
+            app(JobOrderWorkflow::class)->note(
+                $jobOrder,
+                'Expected completion date set to '.$jobOrder->expected_completion_date->format('F d, Y').'.',
+                customerVisible: true,
+            );
+        }
+
+        $this->selectedJobOrder = $jobOrder->load(['receivedBy', 'assignedTo', 'parts', 'services']);
+        $this->dispatch('success', message: 'Expected completion date updated.');
     }
 
     /**
@@ -182,8 +244,13 @@ new class extends Component {
             \Illuminate\Support\Facades\Mail::to($jobOrder->customer_email)
                 ->send(new \App\Mail\QuoteApprovalMail($jobOrder, $partsTotal, $laborTotal, $estimatedTotal));
             
-            // Update status to awaiting approval
-            app(JobOrderWorkflow::class)->transitionTo($jobOrder, JobOrderStatus::AWAITING_APPROVAL);
+            // Update status to awaiting approval. A disapproved quote is
+            // re-opened, which also clears the customer's previous answer.
+            if ($jobOrder->status === JobOrderStatus::DECLINED) {
+                app(JobOrderWorkflow::class)->requote($jobOrder);
+            } else {
+                app(JobOrderWorkflow::class)->transitionTo($jobOrder, JobOrderStatus::AWAITING_APPROVAL);
+            }
             
             $this->dispatch('success', message: 'Quote approval email sent successfully to ' . $jobOrder->customer_email);
         } catch (\Exception $e) {
@@ -198,6 +265,71 @@ new class extends Component {
         app(JobOrderWorkflow::class)->approveManually($jobOrder);
         
         $this->dispatch('success', message: 'Job order manually approved successfully.');
+    }
+
+    /** The customer said no — at the counter or over the phone. */
+    public function declineQuote(int $id, ?string $reason = null): void
+    {
+        $jobOrder = $this->visible()->findOrFail($id);
+
+        if ($jobOrder->status !== JobOrderStatus::AWAITING_APPROVAL) {
+            $this->dispatch('error', message: 'Only a quote awaiting approval can be disapproved.');
+            return;
+        }
+
+        app(JobOrderWorkflow::class)->declineManually($jobOrder, $reason);
+
+        $this->refreshSelected($jobOrder);
+        $this->dispatch('success', message: 'Quote marked as disapproved.');
+    }
+
+    /**
+     * Ask a customer who disapproved to look again.
+     *
+     * Emails the revised quote when there is an address; a walk-in with only
+     * a phone number is moved back to awaiting approval for the counter to
+     * call or text.
+     */
+    public function requote(int $id): void
+    {
+        $jobOrder = $this->visible()->findOrFail($id);
+
+        if ($jobOrder->status !== JobOrderStatus::DECLINED) {
+            $this->dispatch('error', message: 'Only a disapproved quote can be re-quoted.');
+            return;
+        }
+
+        if ($jobOrder->customer_email) {
+            $this->sendQuoteApproval($id);
+        } else {
+            app(JobOrderWorkflow::class)->requote($jobOrder);
+            $this->dispatch('success', message: 'Quote re-opened. The customer has no email on file — contact them to approve.');
+        }
+
+        $this->refreshSelected($jobOrder);
+    }
+
+    /** Close a repair the customer will not go ahead with. */
+    public function cancelJobOrder(int $id): void
+    {
+        $jobOrder = $this->visible()->findOrFail($id);
+
+        if (! $jobOrder->status->canTransitionTo(JobOrderStatus::CANCELLED)) {
+            $this->dispatch('error', message: 'This job order cannot be cancelled.');
+            return;
+        }
+
+        app(JobOrderWorkflow::class)->transitionTo($jobOrder, JobOrderStatus::CANCELLED);
+
+        $this->refreshSelected($jobOrder);
+        $this->dispatch('success', message: 'Job order cancelled.');
+    }
+
+    private function refreshSelected(JobOrder $jobOrder): void
+    {
+        if ($this->selectedJobOrder?->id === $jobOrder->id) {
+            $this->selectedJobOrder = $jobOrder->fresh(['receivedBy', 'assignedTo', 'parts', 'services']);
+        }
     }
 
     public function markCompleted(int $id): void
@@ -339,6 +471,7 @@ new class extends Component {
                 JobOrderStatus::COMPLETED,
                 JobOrderStatus::DELIVERED,
                 JobOrderStatus::CANCELLED,
+                JobOrderStatus::DECLINED,
             ]);
     }
 
@@ -393,6 +526,23 @@ new class extends Component {
                 <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Manage cellphone repair and service job orders</p>
             </div>
         </div>
+
+        @if($printSlipId && ($slipJobOrder = \App\Models\JobOrder::find($printSlipId)))
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                <p class="text-sm text-emerald-800 dark:text-emerald-200">
+                    <span class="font-semibold">{{ $slipJobOrder->job_order_number }}</span> was booked in.
+                    Print the transaction slip for the customer to take home.
+                </p>
+                <a href="{{ route('job-orders.slip', $slipJobOrder) }}" target="_blank" rel="noopener"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    Print Transaction Slip
+                </a>
+                <button type="button" wire:click="dismissSlip" class="text-xs text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer sm:order-last">Dismiss</button>
+            </div>
+        @endif
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
@@ -561,6 +711,8 @@ new class extends Component {
                             <option value="assigned">Assigned</option>
                             <option value="awaiting_approval">Awaiting Approval</option>
                             <option value="approved">Approved</option>
+                            <option value="declined">Disapproved</option>
+                            <option value="awaiting_parts">Awaiting Parts</option>
                             <option value="in_progress">In Progress</option>
                             <option value="done">Done</option>
                             <option value="completed">Completed</option>
@@ -676,6 +828,9 @@ new class extends Component {
                                     Date
                                 </th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                                    Due
+                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
@@ -705,21 +860,7 @@ new class extends Component {
                                         <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $jobOrder->device_model }} • {{ $jobOrder->device_type }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        @php
-                                            $statusColors = [
-                                                'pending' => 'amber',
-                                                'assigned' => 'blue',
-                                                'awaiting_approval' => 'yellow',
-                                                'approved' => 'emerald',
-                                                'in_progress' => 'indigo',
-                                                'done' => 'cyan',
-                                                'completed' => 'green',
-                                                'delivered' => 'teal',
-                                                'cancelled' => 'red',
-                                            ];
-                                            $color = $statusColors[$jobOrder->status->value] ?? 'zinc';
-                                        @endphp
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-{{ $color }}-700 bg-{{ $color }}-100 dark:text-{{ $color }}-300 dark:bg-{{ $color }}-900/30 rounded-full">
+                                        <span class="{{ $jobOrder->status->badgeClasses() }} inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full">
                                             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 8 8">
                                                 <circle cx="4" cy="4" r="3"/>
                                             </svg>
@@ -743,6 +884,16 @@ new class extends Component {
                                         <div class="text-xs text-zinc-400 dark:text-zinc-500">{{ $jobOrder->created_at->format('h:i A') }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
+                                        @if($jobOrder->expected_completion_date)
+                                            <div class="text-sm {{ $jobOrder->isOverdue() ? 'font-semibold text-red-600 dark:text-red-400' : 'text-zinc-600 dark:text-zinc-400' }}">{{ $jobOrder->expected_completion_date->format('M d, Y') }}</div>
+                                            @if($jobOrder->isOverdue())
+                                                <div class="text-xs font-medium text-red-500 dark:text-red-400">Overdue</div>
+                                            @endif
+                                        @else
+                                            <span class="text-xs text-zinc-400 italic">Not set</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-2">
                                             {{-- View --}}
                                             <button wire:click="viewJobOrder({{ $jobOrder->id }})" wire:loading.attr="disabled" wire:target="viewJobOrder" class="inline-flex items-center gap-1 px-3 py-1.5 bg-zinc-600 hover:bg-zinc-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-wait">
@@ -757,6 +908,14 @@ new class extends Component {
                                                 <span wire:loading.remove wire:target="viewJobOrder">View</span>
                                                 <span wire:loading wire:target="viewJobOrder">Loading...</span>
                                             </button>
+                                            {{-- Transaction slip --}}
+                                            <a href="{{ route('job-orders.slip', $jobOrder) }}" target="_blank" rel="noopener" title="Print transaction slip"
+                                                class="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg transition-colors duration-150 shadow-sm hover:shadow">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                                </svg>
+                                                Slip
+                                            </a>
                                             @if($jobOrder->canBeEdited())
                                                 {{-- Edit --}}
                                                 <a href="{{ route('job-orders.edit', $jobOrder) }}" wire:navigate
@@ -887,26 +1046,21 @@ new class extends Component {
                                 <!-- Status Card -->
                                 <div class="bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700">
                                     <h4 class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-4">Status</h4>
-                                    @php
-                                        $statusColors = [
-                                            'pending' => 'amber',
-                                            'assigned' => 'blue',
-                                            'awaiting_approval' => 'yellow',
-                                            'approved' => 'emerald',
-                                            'in_progress' => 'indigo',
-                                            'done' => 'cyan',
-                                            'completed' => 'green',
-                                            'delivered' => 'teal',
-                                            'cancelled' => 'red',
-                                        ];
-                                        $color = $statusColors[$selectedJobOrder->status->value] ?? 'zinc';
-                                    @endphp
-                                    <div class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-{{ $color }}-700 bg-{{ $color }}-100 dark:text-{{ $color }}-300 dark:bg-{{ $color }}-900/30 rounded-full">
+                                    <div class="{{ $selectedJobOrder->status->badgeClasses() }} inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full">
                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 8 8">
                                             <circle cx="4" cy="4" r="3"/>
                                         </svg>
                                         {{ $selectedJobOrder->status->label() }}
                                     </div>
+                                    @if($selectedJobOrder->status === \App\Enums\JobOrderStatus::DECLINED && $selectedJobOrder->declined_at)
+                                        <p class="mt-3 text-xs text-rose-700 dark:text-rose-300">
+                                            {{ $selectedJobOrder->approval_method === 'customer' ? 'Disapproved by the customer' : 'Marked disapproved by staff' }}
+                                            on {{ $selectedJobOrder->declined_at->format('M d, Y h:i A') }}.
+                                        </p>
+                                        @if($selectedJobOrder->decline_reason)
+                                            <p class="mt-1 text-xs text-zinc-700 dark:text-zinc-300"><span class="font-semibold">Reason:</span> {{ $selectedJobOrder->decline_reason }}</p>
+                                        @endif
+                                    @endif
                                 </div>
 
                                 <!-- Cost Summary -->
@@ -959,19 +1113,41 @@ new class extends Component {
                                                 <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->created_at->format('M d, Y h:i A') }}</p>
                                             </div>
                                         </div>
-                                        @if($selectedJobOrder->expected_completion_date)
-                                            <div class="flex items-start gap-3">
-                                                <div class="mt-0.5 p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-full">
-                                                    <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                                    </svg>
-                                                </div>
-                                                <div>
-                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Expected Completion</p>
-                                                    <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $selectedJobOrder->expected_completion_date->format('M d, Y') }}</p>
-                                                </div>
+                                        <div class="flex items-start gap-3">
+                                            <div class="mt-0.5 p-1.5 {{ $selectedJobOrder->isOverdue() ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30' }} rounded-full">
+                                                <svg class="w-4 h-4 {{ $selectedJobOrder->isOverdue() ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                </svg>
                                             </div>
-                                        @endif
+                                            <div class="flex-1 min-w-0" x-data="{ editing: false }">
+                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    Expected Completion
+                                                    @if($selectedJobOrder->isOverdue())
+                                                        <span class="ms-1 font-semibold text-red-600 dark:text-red-400">Overdue</span>
+                                                    @endif
+                                                </p>
+                                                <div x-show="!editing" class="flex items-center gap-2">
+                                                    <p class="text-sm font-semibold {{ $selectedJobOrder->expected_completion_date ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 italic' }}">
+                                                        {{ $selectedJobOrder->expected_completion_date?->format('M d, Y') ?? 'Not set' }}
+                                                    </p>
+                                                    @if($selectedJobOrder->canBeEdited())
+                                                        <button type="button" x-on:click="editing = true" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                                                            {{ $selectedJobOrder->expected_completion_date ? 'Change' : 'Set date' }}
+                                                        </button>
+                                                    @endif
+                                                </div>
+                                                @if($selectedJobOrder->canBeEdited())
+                                                    <form x-show="editing" x-cloak wire:submit="updateExpectedDate" x-on:submit="editing = false" class="mt-1 flex items-center gap-1.5">
+                                                        <input type="date" wire:model="expectedDate" min="{{ today()->toDateString() }}" class="w-36 px-2 py-1 text-xs border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white">
+                                                        <button type="submit" class="px-2 py-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md cursor-pointer">Save</button>
+                                                        <button type="button" x-on:click="editing = false" class="px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:underline cursor-pointer">Cancel</button>
+                                                    </form>
+                                                @endif
+                                                @error('expectedDate')
+                                                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                                                @enderror
+                                            </div>
+                                        </div>
                                         @if($selectedJobOrder->completed_at)
                                             <div class="flex items-start gap-3">
                                                 <div class="mt-0.5 p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full">
@@ -1012,6 +1188,13 @@ new class extends Component {
                                         </svg>
                                         <span class="hidden lg:inline">GET RECEIPT</span>
                                     </button>
+                                    <a href="{{ route('job-orders.slip', $selectedJobOrder) }}" target="_blank" rel="noopener"
+                                        class="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-xl shadow-sm transition-all">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                        </svg>
+                                        <span class="hidden lg:inline">PRINT SLIP</span>
+                                    </a>
                                 </div>
                             </div>
 
@@ -1385,6 +1568,48 @@ new class extends Component {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
                                     Approve
+                                </button>
+                            @endif
+
+                            @if($selectedJobOrder->status->value === 'awaiting_approval')
+                                <button
+                                    type="button"
+                                    x-on:click="let reason = prompt('Mark this quote as disapproved?\n\nReason (optional):'); if (reason !== null) $wire.declineQuote({{ $selectedJobOrder->id }}, reason)"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+                                    title="The customer disapproved the quote">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                    Disapprove
+                                </button>
+                            @endif
+
+                            @if($selectedJobOrder->status->value === 'declined')
+                                <button
+                                    wire:click="requote({{ $selectedJobOrder->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="requote"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+                                    title="Send the customer a revised quote">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                    </svg>
+                                    Re-quote
+                                </button>
+                                <button
+                                    type="button"
+                                    x-on:click="$dispatch('open-delete-dialog', {
+                                        title: 'Cancel Job Order',
+                                        message: 'Cancel {{ addslashes($selectedJobOrder->job_order_number) }}? The device should be returned to the customer.',
+                                        confirmText: 'Cancel Job Order',
+                                        cancelText: 'Keep',
+                                        callback: () => $wire.cancelJobOrder({{ $selectedJobOrder->id }})
+                                    })"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                    </svg>
+                                    Cancel Job
                                 </button>
                             @endif
 

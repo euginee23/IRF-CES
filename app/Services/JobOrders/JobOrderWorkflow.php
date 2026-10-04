@@ -130,6 +130,67 @@ class JobOrderWorkflow
     }
 
     /**
+     * The customer disapproved the quote from the portal or the email link.
+     *
+     * Nothing is reserved until a quote is approved, so there is no stock to
+     * hand back — the repair simply stops and waits for the shop to re-quote
+     * or close it.
+     */
+    public function declineByCustomer(JobOrder $jobOrder, ?string $reason = null): JobOrder
+    {
+        return $this->decline($jobOrder, 'customer', $reason);
+    }
+
+    /** A staff member recorded the customer's "no" — over the phone, at the counter. */
+    public function declineManually(JobOrder $jobOrder, ?string $reason = null): JobOrder
+    {
+        return $this->decline($jobOrder, 'manual', $reason);
+    }
+
+    /**
+     * Ask the customer again after a disapproval, with whatever the shop has
+     * changed on the quote. Clears the previous answer so the portal shows
+     * the Approve / Disapprove buttons again.
+     */
+    public function requote(JobOrder $jobOrder): JobOrder
+    {
+        $this->transitionTo($jobOrder, JobOrderStatus::AWAITING_APPROVAL);
+
+        $jobOrder->forceFill([
+            'declined_at' => null,
+            'decline_reason' => null,
+            'approval_method' => null,
+        ])->save();
+
+        return $jobOrder;
+    }
+
+    private function decline(JobOrder $jobOrder, string $method, ?string $reason): JobOrder
+    {
+        // Checked before anything is written, so a refused transition leaves
+        // no half-recorded disapproval behind.
+        if (! $jobOrder->status->canTransitionTo(JobOrderStatus::DECLINED)) {
+            throw InvalidStatusTransition::between($jobOrder->status, JobOrderStatus::DECLINED);
+        }
+
+        $reason = $reason !== null && trim($reason) !== '' ? trim($reason) : null;
+
+        $jobOrder->forceFill([
+            'declined_at' => now(),
+            'decline_reason' => $reason,
+            'approval_method' => $method,
+        ])->save();
+
+        $this->transitionTo($jobOrder, JobOrderStatus::DECLINED);
+
+        if ($reason !== null) {
+            $this->note($jobOrder, "Reason given: {$reason}", customerVisible: true);
+        }
+
+        return $jobOrder;
+    }
+
+    /**
      * Fix the invoice total at the moment the work is finished.
      *
      * Until now final_cost was declared and read but never written, so every

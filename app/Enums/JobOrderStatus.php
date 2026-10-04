@@ -8,6 +8,7 @@ enum JobOrderStatus: string
     case ASSIGNED = 'assigned';
     case AWAITING_APPROVAL = 'awaiting_approval';
     case APPROVED = 'approved';
+    case DECLINED = 'declined';
     case AWAITING_PARTS = 'awaiting_parts';
     case IN_PROGRESS = 'in_progress';
     case DONE = 'done';
@@ -22,6 +23,7 @@ enum JobOrderStatus: string
             self::ASSIGNED => 'Assigned',
             self::AWAITING_APPROVAL => 'Awaiting Approval',
             self::APPROVED => 'Approved',
+            self::DECLINED => 'Disapproved',
             self::AWAITING_PARTS => 'Awaiting Parts',
             self::IN_PROGRESS => 'In Progress',
             self::DONE => 'Done',
@@ -38,6 +40,7 @@ enum JobOrderStatus: string
             self::ASSIGNED => 'blue',
             self::AWAITING_APPROVAL => 'yellow',
             self::APPROVED => 'emerald',
+            self::DECLINED => 'rose',
             self::AWAITING_PARTS => 'orange',
             self::IN_PROGRESS => 'indigo',
             self::DONE => 'cyan',
@@ -63,6 +66,7 @@ enum JobOrderStatus: string
             self::ASSIGNED => 'text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/30',
             self::AWAITING_APPROVAL => 'text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/30',
             self::APPROVED => 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/30',
+            self::DECLINED => 'text-rose-700 bg-rose-100 dark:text-rose-300 dark:bg-rose-900/30',
             self::AWAITING_PARTS => 'text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-900/30',
             self::IN_PROGRESS => 'text-indigo-700 bg-indigo-100 dark:text-indigo-300 dark:bg-indigo-900/30',
             self::DONE => 'text-cyan-700 bg-cyan-100 dark:text-cyan-300 dark:bg-cyan-900/30',
@@ -90,8 +94,11 @@ enum JobOrderStatus: string
         return match ($this) {
             self::PENDING => [self::ASSIGNED, self::AWAITING_APPROVAL, self::APPROVED, self::AWAITING_PARTS, self::IN_PROGRESS, self::CANCELLED],
             self::ASSIGNED => [self::AWAITING_APPROVAL, self::APPROVED, self::AWAITING_PARTS, self::IN_PROGRESS, self::CANCELLED],
-            self::AWAITING_APPROVAL => [self::APPROVED, self::ASSIGNED, self::AWAITING_PARTS, self::IN_PROGRESS, self::CANCELLED],
+            self::AWAITING_APPROVAL => [self::APPROVED, self::DECLINED, self::ASSIGNED, self::AWAITING_PARTS, self::IN_PROGRESS, self::CANCELLED],
             self::APPROVED => [self::IN_PROGRESS, self::AWAITING_APPROVAL, self::AWAITING_PARTS, self::CANCELLED],
+            // The customer said no. The shop either revises the quote and asks
+            // again, or closes the job and hands the device back.
+            self::DECLINED => [self::AWAITING_APPROVAL, self::CANCELLED],
             // Back to approved the moment the delivery clears the backorder.
             self::AWAITING_PARTS => [self::APPROVED, self::IN_PROGRESS, self::AWAITING_APPROVAL, self::CANCELLED],
             // Back to awaiting_approval when the technician opens the device

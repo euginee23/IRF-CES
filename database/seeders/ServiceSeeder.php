@@ -15,6 +15,10 @@ class ServiceSeeder extends Seeder
         $services = [
             'Display & Input' => [
                 ['name' => 'Screen Repair', 'labor_price' => 500.00, 'estimated_duration' => 60],
+                ['name' => 'Screen Replacement', 'labor_price' => 500.00, 'estimated_duration' => 60],
+                ['name' => 'Screen Replacement (Foldable Inner Screen)', 'labor_price' => 1500.00, 'estimated_duration' => 180],
+                ['name' => 'Screen Glass Refurbish (LOCA)', 'labor_price' => 800.00, 'estimated_duration' => 120],
+                ['name' => 'Screen Protector Installation', 'labor_price' => 100.00, 'estimated_duration' => 10],
                 ['name' => 'Touchscreen / Digitizer Repair', 'labor_price' => 450.00, 'estimated_duration' => 45],
                 ['name' => 'Button Repair (Power / Volume / Home)', 'labor_price' => 300.00, 'estimated_duration' => 30],
                 ['name' => 'Fingerprint / Face ID Repair', 'labor_price' => 600.00, 'estimated_duration' => 90],
@@ -23,13 +27,20 @@ class ServiceSeeder extends Seeder
             'Power & Charging' => [
                 ['name' => 'Battery Replacement', 'labor_price' => 400.00, 'estimated_duration' => 30],
                 ['name' => 'Charging Port Repair', 'labor_price' => 450.00, 'estimated_duration' => 45],
+                ['name' => 'Charging Port Replacement', 'labor_price' => 450.00, 'estimated_duration' => 45],
+            ],
+            'Structural & Housing' => [
+                ['name' => 'Back Glass Replacement', 'labor_price' => 600.00, 'estimated_duration' => 90],
+                ['name' => 'Housing / Frame Replacement', 'labor_price' => 800.00, 'estimated_duration' => 120],
             ],
             'Motherboard & Internal Components' => [
                 ['name' => 'Motherboard / Logic Board Repair', 'labor_price' => 1500.00, 'estimated_duration' => 180],
                 ['name' => 'Soldering / Micro-Soldering', 'labor_price' => 800.00, 'estimated_duration' => 120],
                 ['name' => 'SIM / SD Slot Repair', 'labor_price' => 350.00, 'estimated_duration' => 40],
                 ['name' => 'Camera Repair', 'labor_price' => 500.00, 'estimated_duration' => 60],
+                ['name' => 'Camera Lens Glass Replacement', 'labor_price' => 300.00, 'estimated_duration' => 30],
                 ['name' => 'Speaker / Microphone Repair', 'labor_price' => 400.00, 'estimated_duration' => 45],
+                ['name' => 'Earpiece Speaker Replacement', 'labor_price' => 350.00, 'estimated_duration' => 40],
             ],
             'Water & Physical Damage' => [
                 ['name' => 'Water Damage Repair', 'labor_price' => 1200.00, 'estimated_duration' => 240],
@@ -54,8 +65,9 @@ class ServiceSeeder extends Seeder
 
         foreach ($services as $category => $categoryServices) {
             foreach ($categoryServices as $service) {
-                Service::create([
-                    'name' => $service['name'],
+                // Created once by name and then left alone, so re-seeding
+                // cannot undo a price the shop has since changed.
+                Service::firstOrCreate(['name' => $service['name']], [
                     'category' => $category,
                     'labor_price' => $service['labor_price'],
                     'estimated_duration' => $service['estimated_duration'],

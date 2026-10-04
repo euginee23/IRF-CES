@@ -12,6 +12,9 @@ use App\Services\JobOrders\JobOrderLines;
 use Livewire\Volt\Component;
 
 new class extends Component {
+    /** Rows shown in the part and service pickers at once. */
+    private const PICKER_LIMIT = 50;
+
     public JobOrder $jobOrder;
 
     public string $customer_name = '';
@@ -29,6 +32,7 @@ new class extends Component {
 
     // Parts selection properties
     public string $partSearch = '';
+    public string $serviceSearch = '';
     public string $partCategoryFilter = '';
 
     public function mount(JobOrder $jobOrder)
@@ -59,10 +63,6 @@ new class extends Component {
             ])
             ->all();
 
-        if (empty($this->services)) {
-            $this->services = [['type' => '', 'diagnosis' => '']];
-        }
-
         $this->selectedParts = $jobOrder->parts
             ->map(fn ($part) => [
                 'part_id' => $part->part_id,
@@ -73,17 +73,25 @@ new class extends Component {
             ->all();
     }
 
-    public function addService()
+    public function addServiceToJob($serviceId)
     {
-        $this->services[] = ['type' => '', 'diagnosis' => ''];
+        $service = Service::active()->find($serviceId);
+        if (!$service) return;
+
+        // A service is booked once per job; adding it again is a no-op
+        // rather than a second labour charge.
+        if (in_array($service->name, array_column($this->services, 'type'), true)) {
+            return;
+        }
+
+        $this->services[] = ['type' => $service->name, 'diagnosis' => ''];
+        $this->serviceSearch = '';
     }
 
     public function removeService($index)
     {
-        if (count($this->services) > 1) {
-            unset($this->services[$index]);
-            $this->services = array_values($this->services);
-        }
+        unset($this->services[$index]);
+        $this->services = array_values($this->services);
     }
 
     public function addPartToJob($partId)
@@ -141,10 +149,7 @@ new class extends Component {
 
     public function manufacturers(): array
     {
-        return [
-            'Samsung', 'Apple', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Huawei',
-            'Infinix', 'Tecno', 'Cherry Mobile', 'OnePlus', 'Honor', 'Other',
-        ];
+        return \App\Support\PhoneCatalogue::brands();
     }
 
     public function technicians(): array
@@ -160,20 +165,22 @@ new class extends Component {
         // Out-of-stock parts stay in the picker — a repair can be booked
         // against a part the shop has to order — so the special case that
         // kept already-selected zero-stock parts visible is no longer needed.
-        $partsQuery = Part::where('is_active', true);
+        $partsQuery = Part::where('is_active', true)
+            ->search($this->partSearch)
+            ->when($this->partCategoryFilter, fn ($q) => $q->where('part_category_id', $this->partCategoryFilter));
 
-        if ($this->partSearch) {
-            $partsQuery->where(function($q) {
-                $q->where('name', 'like', '%' . $this->partSearch . '%')
-                  ->orWhere('sku', 'like', '%' . $this->partSearch . '%');
-            });
-        }
+        // The catalogue runs to thousands of parts, so the picker shows the
+        // best matches rather than everything.
+        $availableParts = $partsQuery->orderBy('name')->limit(self::PICKER_LIMIT + 1)->get();
+        $morePartsAvailable = $availableParts->count() > self::PICKER_LIMIT;
+        $availableParts = $availableParts->take(self::PICKER_LIMIT);
 
-        if ($this->partCategoryFilter) {
-            $partsQuery->where('part_category_id', $this->partCategoryFilter);
-        }
-
-        $availableParts = $partsQuery->orderBy('name')->get();
+        $serviceResults = Service::active()
+            ->search($this->serviceSearch)
+            ->orderBy('category')
+            ->orderBy('name')
+            ->limit(self::PICKER_LIMIT)
+            ->get();
 
         // The managed list, so this picker and the admin inventory screen
         // always offer the same categories.
@@ -182,8 +189,10 @@ new class extends Component {
         return [
             'manufacturers' => $this->manufacturers(),
             'technicians' => $this->technicians(),
-            'servicesGrouped' => Service::getGroupedByCategory(),
+            'serviceResults' => $serviceResults,
+            'servicePrices' => Service::whereIn('name', array_filter(array_column($this->services, 'type')))->pluck('labor_price', 'name'),
             'availableParts' => $availableParts,
+            'morePartsAvailable' => $morePartsAvailable,
             'partCategories' => $categories,
         ];
     }
@@ -205,13 +214,18 @@ new class extends Component {
             'selectedParts' => 'nullable|array',
             'selectedParts.*.part_id' => 'required|exists:parts,id',
             'selectedParts.*.quantity' => 'required|integer|min:1',
-            'expected_completion_date' => 'nullable|date|after_or_equal:today',
+            // Only a date being changed has to be in the future. An overdue
+            // repair keeps its original promise on record, and must still
+            // be saveable without inventing a new one.
+            'expected_completion_date' => array_values(array_filter([
+                'required',
+                'date',
+                $this->expected_completion_date !== ($this->jobOrder->expected_completion_date?->format('Y-m-d') ?? '')
+                    ? 'after_or_equal:today'
+                    : null,
+            ])),
             'assigned_to' => ['nullable', Rule::exists('users', 'id')->where('role', Role::TECHNICIAN->value)],
         ]);
-
-        if (empty($validated['expected_completion_date'])) {
-            $validated['expected_completion_date'] = null;
-        }
 
         $services = $validated['services'];
         $parts = $validated['selectedParts'] ?? [];
@@ -271,13 +285,10 @@ new class extends Component {
                     <div class="space-y-1.5">
                         @forelse($services as $service)
                             @if(!empty($service['type']))
-                                @php
-                                    $dbService = \App\Models\Service::where('name', $service['type'])->first();
-                                @endphp
                                 <div class="flex justify-between items-start text-sm">
                                     <span class="text-zinc-700 dark:text-zinc-300 flex-1">{{ $service['type'] }}</span>
-                                    @if($dbService)
-                                        <span class="font-semibold text-zinc-900 dark:text-white">₱{{ number_format($dbService->labor_price, 2) }}</span>
+                                    @if(isset($servicePrices[$service['type']]))
+                                        <span class="font-semibold text-zinc-900 dark:text-white">₱{{ number_format($servicePrices[$service['type']], 2) }}</span>
                                     @else
                                         <span class="text-zinc-400">—</span>
                                     @endif
@@ -302,6 +313,14 @@ new class extends Component {
                             <p class="text-xs text-zinc-400 italic">No parts selected</p>
                         @endforelse
                     </div>
+                </div>
+
+                <!-- Expected Completion -->
+                <div class="pb-3 border-b border-zinc-200 dark:border-zinc-700">
+                    <p class="text-xs uppercase text-zinc-500 dark:text-zinc-400 font-semibold mb-1">Expected Completion</p>
+                    <p class="text-sm font-bold {{ $expected_completion_date ? 'text-zinc-900 dark:text-white' : 'text-red-600' }}">
+                        {{ $expected_completion_date ? \Illuminate\Support\Carbon::parse($expected_completion_date)->format('M d, Y') : 'Not set' }}
+                    </p>
                 </div>
 
                 <!-- Total -->
@@ -407,36 +426,7 @@ new class extends Component {
                         @error('issue_description') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                     </div>
 
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Services <span class="text-red-500">*</span></label>
-                            <button type="button" wire:click="addService" class="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 cursor-pointer">+ Add</button>
-                        </div>
-                        <div class="space-y-2">
-                            @foreach($services as $index => $service)
-                                <div class="flex gap-2">
-                                    <select wire:model.live="services.{{ $index }}.type" class="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 cursor-pointer">
-                                        <option value="">Select service</option>
-                                        @foreach($servicesGrouped as $category => $serviceList)
-                                            <optgroup label="{{ $category }}">
-                                                @foreach($serviceList as $svc)
-                                                    <option value="{{ $svc->name }}">{{ $svc->name }} (₱{{ number_format($svc->labor_price, 2) }})</option>
-                                                @endforeach
-                                            </optgroup>
-                                        @endforeach
-                                    </select>
-                                    @if(count($services) > 1)
-                                        <button type="button" wire:click="removeService({{ $index }})" class="px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded cursor-pointer">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                            </svg>
-                                        </button>
-                                    @endif
-                                </div>
-                            @endforeach
-                        </div>
-                        @error('services') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
-                    </div>
+                    @include('partials.job-order-service-picker')
                 </div>
             </div>
 
@@ -466,7 +456,7 @@ new class extends Component {
                     @endif
 
                     <div class="grid grid-cols-2 gap-2 mb-2">
-                        <input type="text" wire:model.live.debounce.300ms="partSearch" placeholder="Search parts..." class="px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900">
+                        <input type="text" wire:model.live.debounce.300ms="partSearch" placeholder="Search parts (e.g. screen iphone 15)..." class="px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900">
                         <select wire:model.live="partCategoryFilter" class="px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900">
                             <option value="">All Categories</option>
                             @foreach($partCategories as $category)
@@ -475,6 +465,9 @@ new class extends Component {
                         </select>
                     </div>
 
+                    @if($morePartsAvailable)
+                        <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Showing the best {{ $availableParts->count() }} matches — type a model (e.g. "screen iphone 15") to narrow down.</p>
+                    @endif
                     <div class="max-h-60 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg">
                         <table class="w-full text-xs">
                             <thead class="bg-zinc-100 dark:bg-zinc-900 sticky top-0">
@@ -520,12 +513,13 @@ new class extends Component {
             <!-- Assignment -->
             <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                 <div class="bg-zinc-50 dark:bg-zinc-900/50 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-700">
-                    <h3 class="text-sm font-bold text-zinc-900 dark:text-white">Assignment</h3>
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-white">Schedule &amp; Assignment</h3>
                 </div>
                 <div class="p-4 grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Expected Completion</label>
-                        <input wire:model="expected_completion_date" type="date" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Expected Completion <span class="text-red-500">*</span></label>
+                        <input wire:model.live="expected_completion_date" type="date" required class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500">
+                        @error('expected_completion_date') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Assign Technician</label>

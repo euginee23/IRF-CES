@@ -252,3 +252,61 @@ test('the report exports as a csv', function () {
 
     $response->assertFileDownloaded();
 });
+
+// -- Income records --------------------------------------------------------
+
+test('the income records list each payment with the repair it came from', function () {
+    $jobOrder = finishedJobOrder($this->today);
+    $payment = app(PaymentService::class)->take($jobOrder, 1000, PaymentMethod::GCASH, 'GC-123');
+
+    $rows = (new IncomeReport($this->today->startOfMonth(), $this->today->endOfMonth()))->ledgerRows();
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]['receipt_number'])->toBe($payment->receipt_number)
+        ->and($rows[0]['job_order_number'])->toBe($jobOrder->job_order_number)
+        ->and($rows[0]['customer'])->toBe($jobOrder->customer_name)
+        ->and($rows[0]['device'])->toBe('Samsung Galaxy A54')
+        ->and($rows[0]['paid_for'])->toContain('Screen Repair')
+        ->and($rows[0]['method'])->toBe(PaymentMethod::GCASH->label())
+        ->and($rows[0]['amount'])->toBe(1000.0);
+});
+
+test('the income records leave out voided payments and other periods', function () {
+    $jobOrder = finishedJobOrder($this->today);
+    $service = app(PaymentService::class);
+
+    $kept = $service->take($jobOrder, 300, PaymentMethod::CASH);
+    $service->void($service->take($jobOrder, 400, PaymentMethod::CASH));
+    $service->take($jobOrder, 500, PaymentMethod::CASH)->forceFill(['paid_at' => $this->today->subMonths(2)])->save();
+
+    $receipts = (new IncomeReport($this->today->startOfMonth(), $this->today->endOfMonth()))
+        ->ledger()->pluck('receipt_number');
+
+    expect($receipts->all())->toBe([$kept->receipt_number]);
+});
+
+test('the income records filter by method and by customer', function () {
+    $first = finishedJobOrder($this->today);
+    $second = finishedJobOrder($this->today);
+    $service = app(PaymentService::class);
+    $service->take($first, 300, PaymentMethod::CASH);
+    $service->take($second, 700, PaymentMethod::GCASH);
+
+    $report = new IncomeReport($this->today->startOfMonth(), $this->today->endOfMonth());
+
+    expect($report->ledger(PaymentMethod::GCASH->value)->count())->toBe(1)
+        ->and($report->ledger(null, $first->customer_name)->first()->job_order_id)->toBe($first->id)
+        ->and($report->ledger(null, $second->job_order_number)->first()->job_order_id)->toBe($second->id);
+});
+
+test('the income page shows the records and exports them', function () {
+    $jobOrder = finishedJobOrder($this->today);
+    $payment = app(PaymentService::class)->take($jobOrder, 1000, PaymentMethod::CASH);
+
+    Volt::test('admin.reports.income')
+        ->assertSee('Income records')
+        ->assertSee($payment->receipt_number)
+        ->assertSee($jobOrder->job_order_number)
+        ->call('exportRecords')
+        ->assertFileDownloaded();
+});

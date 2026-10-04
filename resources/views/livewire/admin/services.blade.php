@@ -59,6 +59,7 @@ new class extends Component {
         return [
             'Display & Input',
             'Power & Charging',
+            'Structural & Housing',
             'Motherboard & Internal Components',
             'Water & Physical Damage',
             'Software & Firmware',
@@ -134,15 +135,9 @@ new class extends Component {
 
     public function with(): array
     {
-        $query = Service::query();
-
-        if ($this->search) {
-            $query->where(function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('category', 'like', '%' . $this->search . '%')
-                  ->orWhere('description', 'like', '%' . $this->search . '%');
-            });
-        }
+        // Names starting with the search term first, as in the job order
+        // picker, so "screen" lists the screen services at the top.
+        $query = Service::query()->search($this->search);
 
         if ($this->categoryFilter) {
             $query->where('category', $this->categoryFilter);

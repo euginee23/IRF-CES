@@ -48,5 +48,6 @@ class DatabaseSeeder extends Seeder
         // Categories first: the parts seeder resolves each part onto one.
         $this->call(PartCategorySeeder::class);
         $this->call(PartsTableSeeder::class);
+        $this->call(ServiceSeeder::class);
     }
 }

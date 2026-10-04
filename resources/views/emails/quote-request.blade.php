@@ -201,14 +201,11 @@
                     </div>
                 @endif
 
-                <div class="button-container">
-                    <a href="{{ $quoteRequest->portal_url }}" class="cta-button">
-                        View Quote & Respond Online
-                    </a>
-                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
-                        Or copy this link: <a href="{{ $quoteRequest->portal_url }}" style="color: #3b82f6; word-break: break-all;">{{ $quoteRequest->portal_url }}</a>
-                    </p>
-                </div>
+                @include('emails.partials.decision-buttons', [
+                    'approveUrl' => $quoteRequest->portal_url.'?action=approve#respond',
+                    'declineUrl' => $quoteRequest->portal_url.'?action=decline#respond',
+                    'detailsUrl' => $quoteRequest->portal_url,
+                ])
             </div>
 
             <div class="footer">

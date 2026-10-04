@@ -3,6 +3,7 @@
 use App\Contracts\Contactable;
 use App\Livewire\Concerns\ContactsCustomer;
 use App\Models\RepairQuoteRequest;
+use App\Services\Quotes\QuoteRequestSender;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Storage;
@@ -81,14 +82,23 @@ new class extends Component {
 
     public function updateStatus(int $id, string $status): void
     {
+        if (! in_array($status, QuoteRequestSender::STATUSES, true)) {
+            $this->dispatch('error', message: 'Unknown status.');
+            return;
+        }
+
         $request = RepairQuoteRequest::findOrFail($id);
         $request->update(['status' => $status]);
-        
+
         if ($this->selectedRequest && $this->selectedRequest->id === $id) {
             $this->selectedRequest->refresh();
         }
-        
-        $this->dispatch('success', message: 'Status updated successfully.');
+
+        $this->dispatch('success', message: match ($status) {
+            'approved' => 'Quote marked as approved.',
+            'declined' => 'Quote marked as disapproved.',
+            default => 'Status updated successfully.',
+        });
     }
 
     public function createQuote(): void
@@ -108,23 +118,13 @@ new class extends Component {
             return;
         }
 
-        $portalToken = $this->selectedRequest->portal_token ?? bin2hex(random_bytes(32));
-
-        $this->selectedRequest->update([
-            'quoted_price' => (float) $this->quotedPrice,
-            'quote_notes' => $this->quoteNotes ?: null,
-            'quoted_at' => now(),
-            'portal_token' => $portalToken,
-            'status' => 'quoted',
-        ]);
-
         try {
-            \Illuminate\Support\Facades\Mail::to($this->selectedRequest->email)
-                ->send(new \App\Mail\QuoteRequestMail($this->selectedRequest));
+            app(QuoteRequestSender::class)->send($this->selectedRequest, (float) $this->quotedPrice, $this->quoteNotes);
 
             $this->selectedRequest->refresh();
             $this->dispatch('success', message: 'Quote sent successfully to ' . $this->selectedRequest->email);
         } catch (\Exception $e) {
+            $this->selectedRequest->refresh();
             $this->dispatch('error', message: 'Failed to send email: ' . $e->getMessage());
         }
     }
@@ -178,7 +178,7 @@ new class extends Component {
                         <option value="reviewed">Reviewed</option>
                         <option value="quoted">Quoted</option>
                         <option value="approved">Approved</option>
-                        <option value="declined">Declined</option>
+                        <option value="declined">Disapproved</option>
                     </select>
                 </div>
             </div>
@@ -236,7 +236,7 @@ new class extends Component {
                                         <option value="reviewed" {{ $request->status === 'reviewed' ? 'selected' : '' }}>Reviewed</option>
                                         <option value="quoted" {{ $request->status === 'quoted' ? 'selected' : '' }}>Quoted</option>
                                         <option value="approved" {{ $request->status === 'approved' ? 'selected' : '' }}>Approved</option>
-                                        <option value="declined" {{ $request->status === 'declined' ? 'selected' : '' }}>Declined</option>
+                                        <option value="declined" {{ $request->status === 'declined' ? 'selected' : '' }}>Disapproved</option>
                                     </select>
                                 </td>
                                 <td class="px-6 py-5 whitespace-nowrap">
@@ -349,7 +349,7 @@ new class extends Component {
                                     <option value="reviewed" {{ $selectedRequest->status === 'reviewed' ? 'selected' : '' }}>Reviewed</option>
                                     <option value="quoted" {{ $selectedRequest->status === 'quoted' ? 'selected' : '' }}>Quoted</option>
                                     <option value="approved" {{ $selectedRequest->status === 'approved' ? 'selected' : '' }}>Approved</option>
-                                    <option value="declined" {{ $selectedRequest->status === 'declined' ? 'selected' : '' }}>Declined</option>
+                                    <option value="declined" {{ $selectedRequest->status === 'declined' ? 'selected' : '' }}>Disapproved</option>
                                 </select>
                             </div>
 

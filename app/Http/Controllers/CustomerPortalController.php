@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\JobOrderStatus;
 use App\Models\JobOrder;
 use App\Models\RepairQuoteRequest;
 use App\Services\JobOrders\JobOrderWorkflow;
@@ -68,14 +69,45 @@ class CustomerPortalController extends Controller
     }
 
     /**
+     * The page the Approve / Disapprove buttons in the quote email open.
+     *
+     * Only ever shows the question. Gmail and corporate link scanners open
+     * every link in an email before the customer does, so a link that
+     * approved the quote by itself would approve it for them — the decision
+     * is the POST behind the button on this page.
+     */
+    public function decision(string $token, string $decision): View|RedirectResponse
+    {
+        $jobOrder = JobOrder::where('portal_token', $token)
+            ->with(['parts', 'services'])
+            ->firstOrFail();
+
+        if ($jobOrder->status !== JobOrderStatus::AWAITING_APPROVAL) {
+            return redirect()->route('customer.portal.view', ['token' => $token])
+                ->with('info', match ($jobOrder->status) {
+                    JobOrderStatus::DECLINED => 'You have already disapproved this quote. We will be in touch.',
+                    JobOrderStatus::CANCELLED => 'This repair has been closed.',
+                    default => 'This quote has already been answered. Thank you!',
+                });
+        }
+
+        return view('customer-portal.quote-decision', [
+            'jobOrder' => $jobOrder,
+            'decision' => $decision,
+            'partsTotal' => $jobOrder->partsTotal(),
+            'laborTotal' => $jobOrder->laborTotal(),
+            'estimatedTotal' => $jobOrder->lineTotal(),
+        ]);
+    }
+
+    /**
      * Approve quote via customer portal.
      */
     public function approve(string $token): RedirectResponse
     {
         $jobOrder = JobOrder::where('portal_token', $token)->firstOrFail();
 
-        // Only allow approval if status is awaiting_approval
-        if ($jobOrder->status->value !== 'awaiting_approval') {
+        if ($jobOrder->status !== JobOrderStatus::AWAITING_APPROVAL) {
             return redirect()->route('customer.portal.view', ['token' => $token])
                 ->with('error', 'This quote cannot be approved at this time.');
         }
@@ -84,6 +116,28 @@ class CustomerPortalController extends Controller
 
         return redirect()->route('customer.portal.view', ['token' => $token])
             ->with('success', 'Thank you! Your repair quote has been approved. We will begin work shortly.');
+    }
+
+    /**
+     * Disapprove quote via customer portal.
+     */
+    public function decline(Request $request, string $token): RedirectResponse
+    {
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        $jobOrder = JobOrder::where('portal_token', $token)->firstOrFail();
+
+        if ($jobOrder->status !== JobOrderStatus::AWAITING_APPROVAL) {
+            return redirect()->route('customer.portal.view', ['token' => $token])
+                ->with('error', 'This quote cannot be disapproved at this time.');
+        }
+
+        app(JobOrderWorkflow::class)->declineByCustomer($jobOrder, $validated['reason'] ?? null);
+
+        return redirect()->route('customer.portal.view', ['token' => $token])
+            ->with('info', 'You have disapproved the repair quote. We will contact you about your device.');
     }
 
     /**
@@ -107,13 +161,13 @@ class CustomerPortalController extends Controller
 
         if ($quoteRequest->status !== 'quoted') {
             return redirect()->route('customer.portal.quote', ['token' => $token])
-                ->with('error', 'This quote cannot be accepted at this time.');
+                ->with('error', 'This quote cannot be approved at this time.');
         }
 
         $quoteRequest->update(['status' => 'approved']);
 
         return redirect()->route('customer.portal.quote', ['token' => $token])
-            ->with('success', 'Thank you! Your repair quote has been accepted. We will contact you to arrange the repair.');
+            ->with('success', 'Thank you! Your repair quote has been approved. We will contact you to arrange the repair.');
     }
 
     /**
@@ -125,12 +179,12 @@ class CustomerPortalController extends Controller
 
         if ($quoteRequest->status !== 'quoted') {
             return redirect()->route('customer.portal.quote', ['token' => $token])
-                ->with('error', 'This quote cannot be declined at this time.');
+                ->with('error', 'This quote cannot be disapproved at this time.');
         }
 
         $quoteRequest->update(['status' => 'declined']);
 
         return redirect()->route('customer.portal.quote', ['token' => $token])
-            ->with('info', 'The quote has been declined. If you change your mind, feel free to submit a new request.');
+            ->with('info', 'The quote has been disapproved. If you change your mind, feel free to submit a new request.');
     }
 }

@@ -258,21 +258,7 @@ new class extends Component {
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-3">
                                     <span class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ $jobOrder->job_order_number }}</span>
-                                    @php
-                                        $statusColors = [
-                                            'pending' => 'amber',
-                                            'assigned' => 'blue',
-                                            'awaiting_approval' => 'yellow',
-                                            'approved' => 'emerald',
-                                            'in_progress' => 'indigo',
-                                            'done' => 'cyan',
-                                            'completed' => 'green',
-                                            'delivered' => 'teal',
-                                            'cancelled' => 'red',
-                                        ];
-                                        $color = $statusColors[$jobOrder->status->value] ?? 'zinc';
-                                    @endphp
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $color }}-100 text-{{ $color }}-800 dark:bg-{{ $color }}-900/30 dark:text-{{ $color }}-300">
+                                    <span class="{{ $jobOrder->status->badgeClasses() }} inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
                                         {{ $jobOrder->status->label() }}
                                     </span>
                                 </div>
@@ -280,6 +266,9 @@ new class extends Component {
                                 <div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                                     {{ $jobOrder->device_brand }} {{ $jobOrder->device_model }}
                                     &middot; {{ $jobOrder->created_at->format('M d, Y') }}
+                                    @if($jobOrder->expected_completion_date)
+                                        &middot; <span class="{{ $jobOrder->isOverdue() ? 'font-semibold text-red-600 dark:text-red-400' : '' }}">Due {{ $jobOrder->expected_completion_date->format('M d, Y') }}{{ $jobOrder->isOverdue() ? ' (overdue)' : '' }}</span>
+                                    @endif
                                 </div>
                             </div>
                             <button wire:click="viewJobOrder({{ $jobOrder->id }})" class="ml-4 px-4 py-2 text-sm font-medium border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer">
@@ -364,21 +353,7 @@ new class extends Component {
                             <!-- Status Card -->
                             <div class="bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700">
                                 <h4 class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-4">Status</h4>
-                                @php
-                                    $statusColors = [
-                                        'pending' => 'amber',
-                                        'assigned' => 'blue',
-                                        'awaiting_approval' => 'yellow',
-                                        'approved' => 'emerald',
-                                        'in_progress' => 'indigo',
-                                        'done' => 'cyan',
-                                        'completed' => 'green',
-                                        'delivered' => 'teal',
-                                        'cancelled' => 'red',
-                                    ];
-                                    $color = $statusColors[$selectedJobOrder->status->value] ?? 'zinc';
-                                @endphp
-                                <div class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-{{ $color }}-700 bg-{{ $color }}-100 dark:text-{{ $color }}-300 dark:bg-{{ $color }}-900/30 rounded-full">
+                                <div class="{{ $selectedJobOrder->status->badgeClasses() }} inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full">
                                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 8 8">
                                         <circle cx="4" cy="4" r="3"/>
                                     </svg>

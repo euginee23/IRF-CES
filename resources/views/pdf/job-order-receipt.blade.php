@@ -213,6 +213,9 @@
           @if($jobOrder->serial_number)
             <div class="small">Serial / IMEI: {{ $jobOrder->serial_number }}</div>
           @endif
+          @if($jobOrder->expected_completion_date)
+            <div class="small" style="margin-top:4px">Expected completion: <strong>{{ $jobOrder->expected_completion_date->format('M d, Y') }}</strong></div>
+          @endif
         </div>
       </div>
     </div>

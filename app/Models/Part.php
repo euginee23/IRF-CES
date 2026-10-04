@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RankedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Part extends Model
 {
+    use RankedSearch;
+
     /**
      * The most units that may be requested for a single part in one restock
      * request — a supplier may not have more than this available at once.
@@ -88,9 +91,29 @@ class Part extends Model
         return $this->partCategory?->name ?? $this->category;
     }
 
+    /**
+     * At or below the reorder point.
+     *
+     * A reorder point of 0 means the part is listed but not stocked — the
+     * catalogue seeds thousands of those — so it is never "low".
+     */
     public function isLowStock(): bool
     {
-        return $this->in_stock <= $this->reorder_point;
+        return $this->reorder_point > 0 && $this->in_stock <= $this->reorder_point;
+    }
+
+    /**
+     * Search by name, SKU, brand or model, best matches first.
+     *
+     * $alsoSearch adds columns for screens that need them — the inventory
+     * screen also finds parts by supplier.
+     *
+     * Ordered by relevance only when there is a term, so a caller's own
+     * ordering still applies to an empty search.
+     */
+    public function scopeSearch(Builder $query, ?string $term, array $alsoSearch = []): Builder
+    {
+        return static::applyRankedSearch($query, $term, ['name', 'sku', 'manufacturer', 'model', ...$alsoSearch]);
     }
 
     /**
@@ -98,7 +121,8 @@ class Part extends Model
      */
     public function scopeLowStock(Builder $query): Builder
     {
-        return $query->whereColumn('in_stock', '<=', 'reorder_point');
+        return $query->where('reorder_point', '>', 0)
+            ->whereColumn('in_stock', '<=', 'reorder_point');
     }
 
     /**

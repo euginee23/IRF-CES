@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RankedSearch;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
+    use RankedSearch;
+
     protected $fillable = [
         'name',
         'category',
@@ -27,6 +31,15 @@ class Service extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Search by name, category or description, names starting with the
+     * term first.
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        return static::applyRankedSearch($query, $term, ['name', 'category', 'description']);
     }
 
     /**

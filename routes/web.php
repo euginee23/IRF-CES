@@ -13,12 +13,22 @@ Route::prefix('portal')->name('customer.portal.')->group(function () {
     Route::get('/', function () {
         return view('welcome');
     })->name('index');
-    Route::post('/lookup', [App\Http\Controllers\CustomerPortalController::class, 'lookup'])->name('lookup');
     Route::get('/view/{token}', [App\Http\Controllers\CustomerPortalController::class, 'view'])->name('view');
-    Route::post('/approve/{token}', [App\Http\Controllers\CustomerPortalController::class, 'approve'])->name('approve');
+    // The Approve / Disapprove buttons in the quote email land here. GET only
+    // ever shows the question; the answer is the POST behind its button.
+    Route::get('/approve/{token}', [App\Http\Controllers\CustomerPortalController::class, 'decision'])->defaults('decision', 'approve')->name('approve.confirm');
+    Route::get('/decline/{token}', [App\Http\Controllers\CustomerPortalController::class, 'decision'])->defaults('decision', 'decline')->name('decline.confirm');
     Route::get('/quote/{token}', [App\Http\Controllers\CustomerPortalController::class, 'quoteView'])->name('quote');
-    Route::post('/quote/{token}/accept', [App\Http\Controllers\CustomerPortalController::class, 'quoteAccept'])->name('quote.accept');
-    Route::post('/quote/{token}/decline', [App\Http\Controllers\CustomerPortalController::class, 'quoteDecline'])->name('quote.decline');
+
+    // Anything that changes a record, or guesses at one, is rate limited:
+    // these are public and unauthenticated.
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('/lookup', [App\Http\Controllers\CustomerPortalController::class, 'lookup'])->name('lookup');
+        Route::post('/approve/{token}', [App\Http\Controllers\CustomerPortalController::class, 'approve'])->name('approve');
+        Route::post('/decline/{token}', [App\Http\Controllers\CustomerPortalController::class, 'decline'])->name('decline');
+        Route::post('/quote/{token}/accept', [App\Http\Controllers\CustomerPortalController::class, 'quoteAccept'])->name('quote.accept');
+        Route::post('/quote/{token}/decline', [App\Http\Controllers\CustomerPortalController::class, 'quoteDecline'])->name('quote.decline');
+    });
 });
 
 // Redirect to role-specific dashboard after login
@@ -60,6 +70,7 @@ Route::middleware(['auth', 'role:administrator,counter_staff'])->prefix('job-ord
     Volt::route('/', 'job-orders.index')->name('index');
     Volt::route('/create', 'job-orders.create')->name('create');
     Volt::route('/{jobOrder}/edit', 'job-orders.edit')->name('edit');
+    Route::get('/{jobOrder}/slip', App\Http\Controllers\JobOrderSlipController::class)->name('slip');
 });
 
 Route::middleware(['auth'])->group(function () {

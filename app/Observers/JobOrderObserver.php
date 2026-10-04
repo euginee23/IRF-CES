@@ -94,6 +94,7 @@ class JobOrderObserver
             JobOrderStatus::ASSIGNED => 'A technician has been assigned.',
             JobOrderStatus::AWAITING_APPROVAL => 'Your repair quote is ready for approval.',
             JobOrderStatus::APPROVED => 'Quote approved — the repair is scheduled.',
+            JobOrderStatus::DECLINED => 'The repair quote was disapproved.',
             JobOrderStatus::AWAITING_PARTS => 'We are waiting on a replacement part for your device.',
             JobOrderStatus::IN_PROGRESS => 'Your device is being repaired.',
             JobOrderStatus::DONE => 'The repair work is finished and being checked.',

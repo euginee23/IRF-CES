@@ -60,8 +60,8 @@
                     @php
                         $statusConfig = [
                             'quoted' => ['bg' => 'bg-purple-100 dark:bg-purple-900/30', 'text' => 'text-purple-700 dark:text-purple-300', 'label' => 'Awaiting Response'],
-                            'approved' => ['bg' => 'bg-green-100 dark:bg-green-900/30', 'text' => 'text-green-700 dark:text-green-300', 'label' => 'Accepted'],
-                            'declined' => ['bg' => 'bg-red-100 dark:bg-red-900/30', 'text' => 'text-red-700 dark:text-red-300', 'label' => 'Declined'],
+                            'approved' => ['bg' => 'bg-green-100 dark:bg-green-900/30', 'text' => 'text-green-700 dark:text-green-300', 'label' => 'Approved'],
+                            'declined' => ['bg' => 'bg-red-100 dark:bg-red-900/30', 'text' => 'text-red-700 dark:text-red-300', 'label' => 'Disapproved'],
                         ];
                         $status = $statusConfig[$quoteRequest->status] ?? ['bg' => 'bg-zinc-100', 'text' => 'text-zinc-700', 'label' => ucfirst($quoteRequest->status)];
                     @endphp
@@ -140,8 +140,21 @@
 
             <!-- Action Buttons -->
             @if($quoteRequest->status === 'quoted')
-                <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-6">
-                    <p class="text-center text-sm text-zinc-600 dark:text-zinc-400 mb-4">Would you like to proceed with this repair?</p>
+                {{-- ?action= comes from the Approve / Disapprove buttons in the
+                     quote email. It only highlights the matching button: the
+                     link itself never answers, so a link scanner opening it
+                     changes nothing. --}}
+                @php($action = in_array(request('action'), ['approve', 'decline'], true) ? request('action') : null)
+                <div id="respond" class="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg border-2 {{ $action === 'approve' ? 'border-emerald-400' : ($action === 'decline' ? 'border-rose-400' : 'border-zinc-200 dark:border-zinc-700') }} p-6">
+                    <p class="text-center text-sm {{ $action ? 'font-semibold text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400' }} mb-4">
+                        @if($action === 'approve')
+                            Tap the button below to confirm you approve this quote.
+                        @elseif($action === 'decline')
+                            Tap the button below to confirm you disapprove this quote.
+                        @else
+                            Would you like to proceed with this repair?
+                        @endif
+                    </p>
                     <div class="flex items-center justify-center gap-4">
                         <form action="{{ route('customer.portal.quote.accept', ['token' => $quoteRequest->portal_token]) }}" method="POST">
                             @csrf
@@ -149,16 +162,16 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
-                                Accept Quote
+                                Approve Quote
                             </button>
                         </form>
                         <form action="{{ route('customer.portal.quote.decline', ['token' => $quoteRequest->portal_token]) }}" method="POST">
                             @csrf
-                            <button type="submit" class="inline-flex items-center gap-2 px-6 py-3 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-300 font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
+                            <button type="submit" class="inline-flex items-center gap-2 px-6 py-3 {{ $action === 'decline' ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-300' }} font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200 cursor-pointer">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
-                                Decline
+                                Disapprove
                             </button>
                         </form>
                     </div>

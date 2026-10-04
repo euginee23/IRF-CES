@@ -4,14 +4,33 @@ namespace Database\Seeders;
 
 use App\Models\Part;
 use App\Models\PartCategory;
+use App\Support\PhoneCatalogue;
 use Illuminate\Database\Seeder;
 
+/**
+ * The parts catalogue: a hand-picked starter set with stock, then every
+ * common part for the phones in PhoneCatalogue (2020 to 2026).
+ *
+ * Safe to re-run on a live shop. Parts are only ever added: one that already
+ * exists — by SKU, or as the same kind of part for the same model under an
+ * older name — is left exactly as the shop has it, stock and prices
+ * included.
+ */
 class PartsTableSeeder extends Seeder
 {
     /**
      * Run the database seeds.
      */
     public function run(): void
+    {
+        $this->seedStarterParts();
+        $this->seedCatalogue();
+    }
+
+    /**
+     * The original starter set, with opening stock for a fresh install.
+     */
+    private function seedStarterParts(): void
     {
         $parts = [
             // Samsung (multiple models)
@@ -118,27 +137,114 @@ class PartsTableSeeder extends Seeder
             $rawCategory = $p['category'] ?? null;
             $normalizedCategory = $categoryMap[$rawCategory] ?? $rawCategory;
 
-            // Resolve to a real category row, creating one for any name the
-            // map does not already cover so a new part never loses its
-            // grouping just because PartCategorySeeder has not caught up.
-            $categoryId = $normalizedCategory
-                ? PartCategory::firstOrCreate(
-                    ['name' => $normalizedCategory],
-                    ['sort_order' => count(PartCategorySeeder::CATEGORIES), 'is_active' => true],
-                )->id
-                : null;
-
-            Part::updateOrCreate([
+            // Only create: re-seeding must never put stock back to the
+            // opening figure on a shop that has been trading.
+            Part::firstOrCreate([
                 'sku' => $p['sku'],
             ], array_merge($p, [
                 'description' => $p['name'],
                 'category' => $normalizedCategory,
-                'part_category_id' => $categoryId,
+                'part_category_id' => $this->categoryId($normalizedCategory),
                 'reorder_point' => isset($p['reorder_point']) ? $p['reorder_point'] : 5,
                 'supplier' => 'Local Supplier',
                 'model' => $p['model'] ?? null,
                 'is_active' => true,
             ]));
         }
+    }
+
+    /**
+     * Every catalogue part not already on file, inserted in bulk.
+     *
+     * New rows start with no stock and a reorder point of 0, which means
+     * "listed, not stocked": they can be put on a job order (and
+     * backordered), but do not flood the low-stock alerts until the shop
+     * gives them a reorder point.
+     */
+    private function seedCatalogue(): void
+    {
+        $existingSkus = array_flip(Part::query()->pluck('sku')->all());
+
+        // "manufacturer|model" => names already on file, lower-cased, so an
+        // older "Lightning Connector - iPhone 13" stops a second charging
+        // port being added for the same phone.
+        $existingNames = [];
+        foreach (Part::query()->get(['name', 'manufacturer', 'model']) as $part) {
+            $existingNames[strtolower("{$part->manufacturer}|{$part->model}")][] = strtolower($part->name);
+        }
+
+        $now = now();
+        $rows = [];
+
+        foreach (PhoneCatalogue::parts() as $part) {
+            if (isset($existingSkus[$part['sku']]) || $this->alreadyStocked($existingNames, $part)) {
+                continue;
+            }
+
+            $rows[] = [
+                'sku' => $part['sku'],
+                'name' => $part['name'],
+                'description' => $part['name'],
+                'category' => $part['category'],
+                'part_category_id' => $this->categoryId($part['category']),
+                'manufacturer' => $part['manufacturer'],
+                'model' => $part['model'],
+                'unit_cost_price' => $part['unit_cost_price'],
+                'unit_sale_price' => $part['unit_sale_price'],
+                'in_stock' => 0,
+                'reserved_stock' => 0,
+                'reorder_point' => 0,
+                'supplier' => 'Local Supplier',
+                'is_active' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            $existingSkus[$part['sku']] = true;
+        }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            Part::insert($chunk);
+        }
+
+        $this->command?->info('Parts catalogue: '.count($rows).' new parts added.');
+    }
+
+    /**
+     * @param  array<string, array<int, string>>  $existingNames
+     * @param  array{model: string, manufacturer: string, aliases: array<int, string>}  $part
+     */
+    private function alreadyStocked(array $existingNames, array $part): bool
+    {
+        $names = $existingNames[strtolower("{$part['manufacturer']}|{$part['model']}")] ?? [];
+
+        foreach ($names as $name) {
+            foreach ($part['aliases'] as $alias) {
+                if (str_starts_with($name, strtolower($alias))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /** @var array<string, int> */
+    private array $categoryIds = [];
+
+    /**
+     * Resolve a category name to its row, creating one for any name the
+     * category seeder does not already cover so a part never loses its
+     * grouping.
+     */
+    private function categoryId(?string $name): ?int
+    {
+        if (! $name) {
+            return null;
+        }
+
+        return $this->categoryIds[$name] ??= PartCategory::firstOrCreate(
+            ['name' => $name],
+            ['sort_order' => count(PartCategorySeeder::CATEGORIES), 'is_active' => true],
+        )->id;
     }
 }

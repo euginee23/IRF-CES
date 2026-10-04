@@ -259,17 +259,14 @@
 
             <div class="content">
                 <div class="alert-box">
-                    <strong>Action Required:</strong> Review your repair quote and approve it online using the button below.
+                    <strong>Action Required:</strong> Review your repair quote below, then tap <strong>Approve</strong> or <strong>Disapprove</strong>.
                 </div>
 
-                <div class="button-container">
-                    <a href="{{ $jobOrder->portal_url }}" class="cta-button">
-                        View & Approve Quote Online
-                    </a>
-                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
-                        Or copy this link: <a href="{{ $jobOrder->portal_url }}" style="color: #667eea; word-break: break-all;">{{ $jobOrder->portal_url }}</a>
-                    </p>
-                </div>
+                @include('emails.partials.decision-buttons', [
+                    'approveUrl' => route('customer.portal.approve.confirm', ['token' => $jobOrder->portal_token]),
+                    'declineUrl' => route('customer.portal.decline.confirm', ['token' => $jobOrder->portal_token]),
+                    'detailsUrl' => $jobOrder->portal_url,
+                ])
 
                 <div class="section">
                     <div class="section-title">Customer Information</div>
@@ -386,12 +383,14 @@
                 </div>
                 @endif
 
-                <div class="button-container">
-                    <a href="{{ $jobOrder->portal_url }}" class="cta-button">View & Approve Quote Online</a>
-                </div>
+                @include('emails.partials.decision-buttons', [
+                    'approveUrl' => route('customer.portal.approve.confirm', ['token' => $jobOrder->portal_token]),
+                    'declineUrl' => route('customer.portal.decline.confirm', ['token' => $jobOrder->portal_token]),
+                    'detailsUrl' => $jobOrder->portal_url,
+                ])
 
                 <div class="alert-box" style="background-color: #dbeafe; border-left-color: #3b82f6; margin-top: 20px;">
-                    <strong style="color: #1e40af;">Quick & Easy:</strong> Click the button above to view full details and approve your repair quote online in seconds. We'll begin work immediately once approved!
+                    <strong style="color: #1e40af;">Quick & Easy:</strong> Tap Approve and we'll begin work right away. Not happy with the price? Tap Disapprove and let us know why — we'll get in touch.
                 </div>
             </div>
 

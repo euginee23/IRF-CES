@@ -61,9 +61,11 @@ new class extends Component {
 
     public function manufacturers(): array
     {
-        return [
-            'Samsung', 'Apple', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Huawei',
-            'Infinix', 'Tecno', 'Cherry Mobile', 'OnePlus', 'Honor', 'ZTE',
+        // The catalogue's brands first, then the long tail the shop sees less
+        // often. array_unique also folds the duplicate entries the old list had.
+        return array_values(array_unique([
+            ...array_diff(\App\Support\PhoneCatalogue::brands(), ['Other']),
+            'ZTE',
             'Lenovo', 'Meizu', 'Coolpad', 'TCL', 'Alcatel', 'Blackview',
             'Doogee', 'Elephone', 'Gionee', 'Ulefone', 'Umidigi', 'Leagoo',
             'Oukitel', 'Cubot', 'Bluboo', 'Vernee', 'Homtom', 'Gretel',
@@ -76,7 +78,7 @@ new class extends Component {
             'Honeywell', 'Zebra', 'Sonim', 'Kyocera', 'Caterpillar', 'Bullitt',
             'Ruggear', 'AGM', 'Conquest', 'Runbo', 'Thuraya', 'Inmarsat',
             'Iridium', 'Globalstar', 'Other',
-        ];
+        ]));
     }
 
     public function suppliers(): array
@@ -89,15 +91,10 @@ new class extends Component {
 
     public function with(): array
     {
-        $query = Part::query();
-
-        if ($this->search) {
-            $query->where(function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('sku', 'like', '%' . $this->search . '%')
-                  ->orWhere('supplier', 'like', '%' . $this->search . '%');
-            });
-        }
+        // Best matches first while searching, newest first otherwise.
+        $query = Part::query()
+            ->search($this->search, ['supplier'])
+            ->when(trim($this->search) === '', fn ($q) => $q->latest());
 
         if ($this->categoryFilter) {
             $query->where('part_category_id', $this->categoryFilter);
@@ -107,7 +104,7 @@ new class extends Component {
             $query->lowStock();
         }
 
-        $parts = $query->with('partCategory')->latest()->paginate($this->perPage);
+        $parts = $query->with('partCategory')->paginate($this->perPage);
 
         // Was a hardcoded list here, which meant adding a category needed a
         // deploy and the filter could drift away from the parts themselves.

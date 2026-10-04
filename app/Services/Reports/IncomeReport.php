@@ -8,6 +8,7 @@ use App\Models\JobOrderPart;
 use App\Models\JobOrderService;
 use App\Models\Payment;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -233,6 +234,72 @@ class IncomeReport
     private function linesOfFinishedJobOrders($query)
     {
         return $query->whereIn('job_order_id', $this->finishedInPeriod()->select('id'));
+    }
+
+    /**
+     * Every payment taken in the period, with the repair it was for.
+     *
+     * The answer to "where did this money come from": each row is one
+     * receipt, tied to its job order, customer, device and the work on it.
+     * Voided payments are left out, like every other total here.
+     *
+     * @return Builder<Payment>
+     */
+    public function ledger(?string $method = null, ?string $search = null): Builder
+    {
+        $search = trim((string) $search);
+
+        return Payment::counted()
+            ->whereBetween('paid_at', [$this->from, $this->to])
+            ->when($method, fn (Builder $q) => $q->where('method', $method))
+            ->when($search !== '', function (Builder $q) use ($search) {
+                $q->where(function (Builder $q) use ($search) {
+                    $q->where('receipt_number', 'like', "%{$search}%")
+                        ->orWhere('reference_no', 'like', "%{$search}%")
+                        ->orWhereHas('jobOrder', fn (Builder $jo) => $jo->where(fn (Builder $w) => $w
+                            ->where('job_order_number', 'like', "%{$search}%")
+                            ->orWhere('customer_name', 'like', "%{$search}%")
+                            ->orWhere('customer_phone', 'like', "%{$search}%")));
+                });
+            })
+            ->with(['jobOrder.services', 'jobOrder.parts', 'receivedBy'])
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * The ledger flattened for a spreadsheet.
+     *
+     * @return Collection<int, array<string, string|float>>
+     */
+    public function ledgerRows(?string $method = null, ?string $search = null): Collection
+    {
+        return $this->ledger($method, $search)->get()->map(fn (Payment $payment) => [
+            'paid_at' => $payment->paid_at->format('Y-m-d H:i'),
+            'receipt_number' => (string) $payment->receipt_number,
+            'job_order_number' => (string) $payment->jobOrder?->job_order_number,
+            'customer' => (string) $payment->jobOrder?->customer_name,
+            'device' => trim("{$payment->jobOrder?->device_brand} {$payment->jobOrder?->device_model}"),
+            'paid_for' => self::paidFor($payment),
+            'method' => $payment->method->label(),
+            'reference_no' => (string) $payment->reference_no,
+            'received_by' => (string) $payment->receivedBy?->name,
+            'amount' => round((float) $payment->amount, 2),
+        ]);
+    }
+
+    /** The services and parts on the repair a payment was for, as one line. */
+    public static function paidFor(Payment $payment): string
+    {
+        if (! $payment->jobOrder) {
+            return '';
+        }
+
+        return $payment->jobOrder->services->pluck('service_name')
+            ->concat($payment->jobOrder->parts->map(
+                fn ($part) => $part->quantity > 1 ? "{$part->part_name} x{$part->quantity}" : $part->part_name,
+            ))
+            ->implode(', ');
     }
 
     /**

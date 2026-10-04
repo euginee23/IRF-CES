@@ -34,6 +34,17 @@
             </div>
         @endif
 
+        @if(session('info'))
+            <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-sm font-medium text-blue-800 dark:text-blue-200">{{ session('info') }}</p>
+                </div>
+            </div>
+        @endif
+
         <!-- Header -->
         <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-6">
@@ -59,6 +70,7 @@
                             'assigned' => ['bg' => 'bg-blue-100 dark:bg-blue-900/30', 'text' => 'text-blue-700 dark:text-blue-300', 'icon' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'],
                             'awaiting_approval' => ['bg' => 'bg-yellow-100 dark:bg-yellow-900/30', 'text' => 'text-yellow-700 dark:text-yellow-300', 'icon' => 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'],
                             'approved' => ['bg' => 'bg-emerald-100 dark:bg-emerald-900/30', 'text' => 'text-emerald-700 dark:text-emerald-300', 'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
+                            'declined' => ['bg' => 'bg-rose-100 dark:bg-rose-900/30', 'text' => 'text-rose-700 dark:text-rose-300', 'icon' => 'M6 18L18 6M6 6l12 12'],
                             'in_progress' => ['bg' => 'bg-indigo-100 dark:bg-indigo-900/30', 'text' => 'text-indigo-700 dark:text-indigo-300', 'icon' => 'M13 10V3L4 14h7v7l9-11h-7z'],
                             'completed' => ['bg' => 'bg-green-100 dark:bg-green-900/30', 'text' => 'text-green-700 dark:text-green-300', 'icon' => 'M5 13l4 4L19 7'],
                             'delivered' => ['bg' => 'bg-teal-100 dark:bg-teal-900/30', 'text' => 'text-teal-700 dark:text-teal-300', 'icon' => 'M5 13l4 4L19 7'],
@@ -303,22 +315,27 @@
                         </div>
 
                         @if($jobOrder->status->value === 'awaiting_approval')
-                            <div class="mt-6 space-y-3">
-                                <form action="{{ route('customer.portal.approve', ['token' => $jobOrder->portal_token]) }}" method="POST">
-                                    @csrf
-                                    <button 
-                                        type="submit"
-                                        onclick="return confirm('Are you sure you want to approve this repair quote? We will begin work once approved.')"
-                                        class="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-base font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                        Approve Quote
-                                    </button>
-                                </form>
-                                <p class="text-xs text-center text-zinc-600 dark:text-zinc-400">
-                                    By approving, you authorize us to proceed with the repair.
-                                </p>
+                            <div class="mt-6">
+                                @include('customer-portal.partials.quote-decision-forms', ['jobOrder' => $jobOrder])
+                            </div>
+                        @elseif($jobOrder->status->value === 'declined')
+                            <div class="mt-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl">
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                    <div>
+                                        <p class="text-sm font-semibold text-rose-900 dark:text-rose-200 mb-1">Quote Disapproved</p>
+                                        <p class="text-xs text-rose-700 dark:text-rose-300">
+                                            @if($jobOrder->declined_at)
+                                                This quote was disapproved on {{ $jobOrder->declined_at->format('F d, Y \a\t g:i A') }}.
+                                            @else
+                                                This quote was disapproved.
+                                            @endif
+                                            We will contact you about a revised quote or picking up your device.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         @elseif($jobOrder->status->value === 'approved')
                             <div class="mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">

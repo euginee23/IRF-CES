@@ -38,6 +38,8 @@ class JobOrder extends Model implements Contactable
         'portal_token',
         'approved_by_customer_at',
         'approval_method',
+        'declined_at',
+        'decline_reason',
     ];
 
     protected $casts = [
@@ -47,6 +49,7 @@ class JobOrder extends Model implements Contactable
         'completed_at' => 'datetime',
         'delivered_at' => 'datetime',
         'approved_by_customer_at' => 'datetime',
+        'declined_at' => 'datetime',
         'status' => JobOrderStatus::class,
     ];
 
@@ -325,6 +328,18 @@ class JobOrder extends Model implements Contactable
     public function isApprovedByCustomer(): bool
     {
         return $this->approval_method === 'customer';
+    }
+
+    /**
+     * Whether the expected completion date has passed with the work still
+     * open. Mirrors the "overdue" filter on the job orders list; a
+     * disapproved quote is waiting on the customer, not the bench.
+     */
+    public function isOverdue(): bool
+    {
+        return $this->expected_completion_date !== null
+            && $this->expected_completion_date->lt(today())
+            && ! in_array($this->status, [JobOrderStatus::COMPLETED, JobOrderStatus::DELIVERED, JobOrderStatus::CANCELLED, JobOrderStatus::DECLINED], strict: true);
     }
 
     // -- Contactable -------------------------------------------------------

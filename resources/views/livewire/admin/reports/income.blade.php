@@ -1,10 +1,20 @@
 <?php
 
+use App\Enums\PaymentMethod;
 use App\Services\Reports\IncomeReport;
 use Carbon\CarbonImmutable;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
 new class extends Component {
+    use WithPagination;
+
+    /** Income records: '' for every method, or a PaymentMethod value. */
+    public string $ledgerMethod = '';
+
+    /** Income records: receipt #, job order #, customer name or phone. */
+    public string $ledgerSearch = '';
+
     /** today | week | month | quarter | year | custom */
     public string $period = 'month';
 
@@ -30,8 +40,30 @@ new class extends Component {
         return __('Income Report');
     }
 
+    public function updatedLedgerMethod(): void
+    {
+        $this->resetPage('recordsPage');
+    }
+
+    public function updatedLedgerSearch(): void
+    {
+        $this->resetPage('recordsPage');
+    }
+
+    public function updatedFrom(): void
+    {
+        $this->resetPage('recordsPage');
+    }
+
+    public function updatedTo(): void
+    {
+        $this->resetPage('recordsPage');
+    }
+
     public function updatedPeriod(): void
     {
+        $this->resetPage('recordsPage');
+
         if ($this->period === 'custom') {
             return;
         }
@@ -120,9 +152,42 @@ new class extends Component {
         }, $filename, ['Content-Type' => 'text/csv']);
     }
 
+    /** Every payment in the period, one row each, as a CSV. */
+    public function exportRecords()
+    {
+        [$from, $to] = $this->resolveRange();
+        $method = $this->ledgerMethodValue();
+
+        $rows = [[
+            'Date', 'OR #', 'Job Order #', 'Customer', 'Device', 'Paid For',
+            'Method', 'Reference #', 'Received By', 'Amount',
+        ]];
+
+        foreach ($this->report()->ledgerRows($method, $this->ledgerSearch) as $row) {
+            $rows[] = array_values($row);
+        }
+
+        $filename = 'income-records-' . $from->format('Ymd') . '-' . $to->format('Ymd') . '.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $handle = fopen('php://output', 'w');
+            foreach ($rows as $row) {
+                fputcsv($handle, $row);
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    /** The method filter, ignoring anything that is not a real method. */
+    private function ledgerMethodValue(): ?string
+    {
+        return PaymentMethod::tryFrom($this->ledgerMethod)?->value;
+    }
+
     public function with(): array
     {
         $report = $this->report();
+        $ledger = $report->ledger($this->ledgerMethodValue(), $this->ledgerSearch);
         [$from, $to] = $this->resolveRange();
 
         return [
@@ -132,6 +197,8 @@ new class extends Component {
             'topServices' => $report->topServices(),
             'topParts' => $report->topParts(),
             'byTechnician' => $report->byTechnician(),
+            'records' => $ledger->paginate(25, pageName: 'recordsPage'),
+            'paymentMethods' => PaymentMethod::cases(),
             'rangeLabel' => $from->format('d M Y') . ' — ' . $to->format('d M Y'),
         ];
     }
@@ -297,6 +364,89 @@ new class extends Component {
                 </div>
             @endif
         </div>
+    </div>
+
+    <!-- Income records -->
+    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Income records</h2>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">Every payment taken in this period and the repair it came from.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <input type="text" wire:model.live.debounce.300ms="ledgerSearch" placeholder="OR #, job order #, customer..."
+                    class="px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white">
+                <select wire:model.live="ledgerMethod"
+                    class="px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white">
+                    <option value="">All methods</option>
+                    @foreach($paymentMethods as $method)
+                        <option value="{{ $method->value }}">{{ $method->label() }}</option>
+                    @endforeach
+                </select>
+                <button type="button" wire:click="exportRecords"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-100 text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Export records
+                </button>
+            </div>
+        </div>
+
+        @if($records->isEmpty())
+            <p class="px-6 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">No payments match in this period.</p>
+        @else
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-zinc-50 dark:bg-zinc-800/50">
+                            <th class="px-4 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">Date</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">OR #</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">Job Order</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">Customer / Device</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">Paid for</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">Method</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">Received by</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        @foreach($records as $payment)
+                            <tr wire:key="record-{{ $payment->id }}" class="align-top">
+                                <td class="px-4 py-3 whitespace-nowrap text-zinc-700 dark:text-zinc-300">
+                                    {{ $payment->paid_at->format('M d, Y') }}
+                                    <span class="block text-xs text-zinc-500 dark:text-zinc-400">{{ $payment->paid_at->format('h:i A') }}</span>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-zinc-900 dark:text-white">{{ $payment->receipt_number }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    @if($payment->jobOrder)
+                                        <a href="{{ route('job-orders.index', ['search' => $payment->jobOrder->job_order_number]) }}" wire:navigate class="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">{{ $payment->jobOrder->job_order_number }}</a>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="font-medium text-zinc-900 dark:text-white">{{ $payment->jobOrder?->customer_name }}</span>
+                                    <span class="block text-xs text-zinc-500 dark:text-zinc-400">{{ trim("{$payment->jobOrder?->device_brand} {$payment->jobOrder?->device_model}") }}</span>
+                                </td>
+                                <td class="px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300 max-w-xs">{{ \App\Services\Reports\IncomeReport::paidFor($payment) ?: '—' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-zinc-700 dark:text-zinc-300">
+                                    {{ $payment->method->label() }}
+                                    @if($payment->reference_no)
+                                        <span class="block text-xs text-zinc-500 dark:text-zinc-400">Ref {{ $payment->reference_no }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-zinc-700 dark:text-zinc-300">{{ $payment->receivedBy?->name ?? '—' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right font-semibold text-zinc-900 dark:text-white">₱{{ number_format((float) $payment->amount, 2) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @if($records->hasPages())
+                <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
+                    {{ $records->links() }}
+                </div>
+            @endif
+        @endif
     </div>
 
     <!-- Top earners -->

@@ -182,24 +182,11 @@ new class extends Component {
             @else
                 <div class="divide-y divide-zinc-100 dark:divide-zinc-700">
                     @foreach($recentOrders as $order)
-                        @php
-                            $statusColors = [
-                                'pending' => 'amber',
-                                'assigned' => 'blue',
-                                'awaiting_approval' => 'yellow',
-                                'approved' => 'emerald',
-                                'in_progress' => 'indigo',
-                                'completed' => 'green',
-                                'delivered' => 'teal',
-                                'cancelled' => 'red',
-                            ];
-                            $color = $statusColors[$order->status->value] ?? 'zinc';
-                        @endphp
                         <div class="flex items-center justify-between px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ $order->job_order_number }}</span>
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-{{ $color }}-100 text-{{ $color }}-800 dark:bg-{{ $color }}-900/30 dark:text-{{ $color }}-300">
+                                    <span class="{{ $order->status->badgeClasses() }} inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
                                         {{ $order->status->label() }}
                                     </span>
                                 </div>

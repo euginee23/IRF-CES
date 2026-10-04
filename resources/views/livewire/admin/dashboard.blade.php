@@ -27,6 +27,7 @@ new class extends Component {
                 'assigned_orders' => JobOrder::where('status', JobOrderStatus::ASSIGNED)->count(),
                 'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
                 'approved_orders' => JobOrder::where('status', JobOrderStatus::APPROVED)->count(),
+                'declined_orders' => JobOrder::where('status', JobOrderStatus::DECLINED)->count(),
                 'in_progress_orders' => JobOrder::where('status', JobOrderStatus::IN_PROGRESS)->count(),
                 'completed_orders' => JobOrder::where('status', JobOrderStatus::COMPLETED)->count(),
                 'delivered_orders' => JobOrder::where('status', JobOrderStatus::DELIVERED)->count(),
@@ -46,7 +47,7 @@ new class extends Component {
 
                 // Parts / Inventory
                 'active_parts' => Part::where('is_active', true)->count(),
-                'low_stock_parts' => Part::where('is_active', true)->whereColumn('in_stock', '<=', 'reorder_point')->count(),
+                'low_stock_parts' => Part::where('is_active', true)->lowStock()->count(),
                 'inventory_value' => Part::where('is_active', true)->selectRaw('SUM(in_stock * unit_cost_price) as total')->value('total') ?? 0,
 
                 // Quote Requests
@@ -246,24 +247,27 @@ new class extends Component {
         <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Job Order Pipeline</h2>
         <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Current status distribution across all orders</p>
 
-        <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div class="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
             @php
+                // Colours come from the status enum's literal class strings:
+                // Tailwind v4 never sees a class built at runtime.
                 $pipeline = [
-                    ['label' => 'Pending', 'count' => $stats['pending_orders'], 'color' => 'amber'],
-                    ['label' => 'Assigned', 'count' => $stats['assigned_orders'], 'color' => 'blue'],
-                    ['label' => 'Awaiting', 'count' => $stats['awaiting_approval'], 'color' => 'yellow'],
-                    ['label' => 'Approved', 'count' => $stats['approved_orders'], 'color' => 'emerald'],
-                    ['label' => 'In Progress', 'count' => $stats['in_progress_orders'], 'color' => 'indigo'],
-                    ['label' => 'Completed', 'count' => $stats['completed_orders'], 'color' => 'green'],
-                    ['label' => 'Delivered', 'count' => $stats['delivered_orders'], 'color' => 'teal'],
-                    ['label' => 'Cancelled', 'count' => $stats['cancelled_orders'], 'color' => 'red'],
+                    ['label' => 'Pending', 'count' => $stats['pending_orders'], 'status' => \App\Enums\JobOrderStatus::PENDING],
+                    ['label' => 'Assigned', 'count' => $stats['assigned_orders'], 'status' => \App\Enums\JobOrderStatus::ASSIGNED],
+                    ['label' => 'Awaiting', 'count' => $stats['awaiting_approval'], 'status' => \App\Enums\JobOrderStatus::AWAITING_APPROVAL],
+                    ['label' => 'Approved', 'count' => $stats['approved_orders'], 'status' => \App\Enums\JobOrderStatus::APPROVED],
+                    ['label' => 'Disapproved', 'count' => $stats['declined_orders'], 'status' => \App\Enums\JobOrderStatus::DECLINED],
+                    ['label' => 'In Progress', 'count' => $stats['in_progress_orders'], 'status' => \App\Enums\JobOrderStatus::IN_PROGRESS],
+                    ['label' => 'Completed', 'count' => $stats['completed_orders'], 'status' => \App\Enums\JobOrderStatus::COMPLETED],
+                    ['label' => 'Delivered', 'count' => $stats['delivered_orders'], 'status' => \App\Enums\JobOrderStatus::DELIVERED],
+                    ['label' => 'Cancelled', 'count' => $stats['cancelled_orders'], 'status' => \App\Enums\JobOrderStatus::CANCELLED],
                 ];
             @endphp
 
             @foreach($pipeline as $stage)
-                <div class="text-center p-4 bg-{{ $stage['color'] }}-50 dark:bg-{{ $stage['color'] }}-900/20 rounded-xl border border-{{ $stage['color'] }}-200 dark:border-{{ $stage['color'] }}-800/50">
-                    <div class="text-2xl font-bold text-{{ $stage['color'] }}-700 dark:text-{{ $stage['color'] }}-400">{{ $stage['count'] }}</div>
-                    <div class="text-xs font-medium text-{{ $stage['color'] }}-600 dark:text-{{ $stage['color'] }}-500 mt-1">{{ $stage['label'] }}</div>
+                <div class="{{ $stage['status']->badgeClasses() }} text-center p-4 rounded-xl">
+                    <div class="text-2xl font-bold">{{ $stage['count'] }}</div>
+                    <div class="text-xs font-medium mt-1">{{ $stage['label'] }}</div>
                 </div>
             @endforeach
         </div>
@@ -509,19 +513,6 @@ new class extends Component {
                     </thead>
                     <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700">
                         @foreach($recentOrders as $order)
-                            @php
-                                $statusColors = [
-                                    'pending' => 'amber',
-                                    'assigned' => 'blue',
-                                    'awaiting_approval' => 'yellow',
-                                    'approved' => 'emerald',
-                                    'in_progress' => 'indigo',
-                                    'completed' => 'green',
-                                    'delivered' => 'teal',
-                                    'cancelled' => 'red',
-                                ];
-                                $color = $statusColors[$order->status->value] ?? 'zinc';
-                            @endphp
                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
                                 <td class="px-6 py-4 font-bold text-indigo-600 dark:text-indigo-400">{{ $order->job_order_number }}</td>
                                 <td class="px-6 py-4">
@@ -530,7 +521,7 @@ new class extends Component {
                                 </td>
                                 <td class="px-6 py-4 text-zinc-700 dark:text-zinc-300">{{ $order->device_brand }} {{ $order->device_model }}</td>
                                 <td class="px-6 py-4">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $color }}-100 text-{{ $color }}-800 dark:bg-{{ $color }}-900/30 dark:text-{{ $color }}-300">
+                                    <span class="{{ $order->status->badgeClasses() }} inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
                                         {{ $order->status->label() }}
                                     </span>
                                 </td>
