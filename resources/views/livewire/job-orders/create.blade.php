@@ -39,6 +39,9 @@ new class extends Component {
     public string $serviceSearch = '';
     public string $partCategoryFilter = '';
 
+    /** Narrow the parts picker to the phone being booked in. */
+    public bool $onlyDeviceParts = true;
+
     public function mount()
     {
         $this->services = [];
@@ -88,6 +91,17 @@ new class extends Component {
     {
         unset($this->services[$index]);
         $this->services = array_values($this->services);
+    }
+
+    /** A different phone: go back to showing just its parts. */
+    public function updatedDeviceModel(): void
+    {
+        $this->onlyDeviceParts = true;
+    }
+
+    public function updatedDeviceBrand(): void
+    {
+        $this->onlyDeviceParts = true;
     }
 
     public function addPartToJob($partId)
@@ -167,7 +181,13 @@ new class extends Component {
         // Out-of-stock parts stay in the picker: a phone can be booked in
         // for a part the shop has to order, which is the whole point of
         // backorders. The row says what is available.
+        // Once the phone is known, only its parts are offered: with the full
+        // catalogue there are thousands, and the counter wants the dozen that
+        // fit. Staff can switch it off for a part listed under another model.
+        $filterByDevice = $this->onlyDeviceParts && Part::normaliseModel($this->device_model) !== '';
+
         $partsQuery = Part::where('is_active', true)
+            ->when($filterByDevice, fn ($q) => $q->forDevice($this->device_brand, $this->device_model))
             ->search($this->partSearch)
             ->when($this->partCategoryFilter, fn ($q) => $q->where('part_category_id', $this->partCategoryFilter));
 
@@ -195,6 +215,7 @@ new class extends Component {
             'servicePrices' => Service::whereIn('name', array_filter(array_column($this->services, 'type')))->pluck('labor_price', 'name'),
             'availableParts' => $availableParts,
             'morePartsAvailable' => $morePartsAvailable,
+            'filterByDevice' => $filterByDevice,
             'partCategories' => $categories,
         ];
     }
@@ -425,7 +446,7 @@ new class extends Component {
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Model <span class="text-red-500">*</span></label>
-                        <input wire:model.live="device_model" type="text" placeholder="Model (e.g., Galaxy S21)" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500" required>
+                        <input wire:model.live.debounce.300ms="device_model" type="text" placeholder="Model (e.g., Galaxy S21)" class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500" required>
                         @error('device_model') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                     </div>
                     <div>
@@ -491,6 +512,12 @@ new class extends Component {
                         </select>
                     </div>
 
+                    @if(trim($device_model) !== '')
+                        <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                            <input type="checkbox" wire:model.live="onlyDeviceParts" class="rounded border-zinc-300 dark:border-zinc-600 text-indigo-600 focus:ring-indigo-500">
+                            Only show parts for <span class="font-semibold">{{ trim(($device_brand !== 'Other' ? $device_brand : '').' '.$device_model) }}</span>
+                        </label>
+                    @endif
                     @if($morePartsAvailable)
                         <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Showing the best {{ $availableParts->count() }} matches — type a model (e.g. "screen iphone 15") to narrow down.</p>
                     @endif
@@ -528,7 +555,16 @@ new class extends Component {
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="3" class="px-2 py-4 text-center text-zinc-400">No parts found</td></tr>
+                                    <tr>
+                                        <td colspan="3" class="px-2 py-4 text-center text-zinc-400">
+                                            @if($filterByDevice)
+                                                No parts listed for this phone{{ $partSearch ? ' matching "'.$partSearch.'"' : '' }}.
+                                                <button type="button" wire:click="$set('onlyDeviceParts', false)" class="ms-1 font-medium text-indigo-600 hover:text-indigo-700 cursor-pointer">Show all parts</button>
+                                            @else
+                                                No parts found
+                                            @endif
+                                        </td>
+                                    </tr>
                                 @endforelse
                             </tbody>
                         </table>

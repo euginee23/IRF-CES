@@ -101,3 +101,63 @@ test('the job order form ranks part matches and caps the list', function () {
         ->assertViewHas('availableParts', fn ($parts) => $parts->count() === 50)
         ->assertViewHas('morePartsAvailable', true);
 });
+
+// -- Parts for the phone being booked in ---------------------------------------
+
+test('parts are narrowed to the phone being booked in', function () {
+    searchPart('Screen Assembly - iPhone 15', 'Apple', 'iPhone 15');
+    searchPart('Battery - iPhone 15', 'Apple', 'iPhone 15');
+    searchPart('Screen Assembly - iPhone 15 Pro', 'Apple', 'iPhone 15 Pro');
+    searchPart('Screen Assembly - Samsung Galaxy S24 Ultra', 'Samsung', 'Galaxy S24 Ultra');
+    searchPart('Loudspeaker (Bottom) - Samsung', 'Samsung', 'Generic');
+
+    $names = fn (?string $brand, string $model) => Part::forDevice($brand, $model)->orderBy('name')->pluck('name')->all();
+
+    // Exact model only — not every iPhone 15 Pro part too.
+    expect($names('Apple', 'iPhone 15'))->toBe(['Battery - iPhone 15', 'Screen Assembly - iPhone 15'])
+        // Typed loosely, and without the "Galaxy": still the right phone,
+        // plus the brand's generic parts.
+        ->and($names('Samsung', 's24-ultra'))->toBe([
+            'Loudspeaker (Bottom) - Samsung',
+            'Screen Assembly - Samsung Galaxy S24 Ultra',
+        ])
+        // No brand chosen: the model alone decides.
+        ->and($names('Other', 'IPHONE15PRO'))->toBe(['Screen Assembly - iPhone 15 Pro']);
+});
+
+test('the job order form only offers parts for the phone, until told otherwise', function () {
+    $this->actingAs(User::factory()->create(['role' => Role::COUNTER_STAFF, 'email_verified_at' => now()]));
+    searchPart('Screen Assembly - iPhone 15', 'Apple', 'iPhone 15');
+    searchPart('Screen Assembly - Samsung Galaxy A54', 'Samsung', 'Galaxy A54');
+
+    $partNames = fn ($parts) => $parts->pluck('name')->all();
+
+    Volt::test('job-orders.create')
+        ->assertViewHas('availableParts', fn ($parts) => $parts->count() === 2)
+        ->set('device_brand', 'Samsung')
+        ->set('device_model', 'Galaxy A54')
+        ->assertViewHas('availableParts', fn ($parts) => $partNames($parts) === ['Screen Assembly - Samsung Galaxy A54'])
+        ->set('partSearch', 'screen')
+        ->assertViewHas('availableParts', fn ($parts) => $partNames($parts) === ['Screen Assembly - Samsung Galaxy A54'])
+        ->set('onlyDeviceParts', false)
+        ->assertViewHas('availableParts', fn ($parts) => $parts->count() === 2)
+        // Changing the phone narrows the list again.
+        ->set('device_model', 'iPhone 15')
+        ->assertSet('onlyDeviceParts', true);
+});
+
+test('the edit form narrows parts to the phone on the job order', function () {
+    $this->actingAs(User::factory()->create(['role' => Role::COUNTER_STAFF, 'email_verified_at' => now()]));
+    searchPart('Screen Assembly - iPhone 15', 'Apple', 'iPhone 15');
+    searchPart('Screen Assembly - Samsung Galaxy A54', 'Samsung', 'Galaxy A54');
+
+    $jobOrder = \App\Models\JobOrder::create([
+        'customer_name' => 'Ana Lim', 'customer_phone' => '09171234567',
+        'device_brand' => 'Apple', 'device_model' => 'iPhone 15', 'issue_description' => 'Cracked',
+        'expected_completion_date' => today()->addDays(3),
+        'status' => \App\Enums\JobOrderStatus::PENDING, 'received_by' => auth()->id(),
+    ]);
+
+    Volt::test('job-orders.edit', ['jobOrder' => $jobOrder])
+        ->assertViewHas('availableParts', fn ($parts) => $parts->pluck('name')->all() === ['Screen Assembly - iPhone 15']);
+});

@@ -24,6 +24,12 @@ class JobOrderSlipController extends Controller
             403,
         );
 
+        // The debug toolbar injects itself into every HTML page when debug
+        // is on, and would come out of the thermal printer with the slip.
+        if (app()->bound('debugbar')) {
+            app('debugbar')->disable();
+        }
+
         $jobOrder->load(['receivedBy', 'parts', 'services']);
 
         return view('job-orders.slip', [

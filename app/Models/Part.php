@@ -92,6 +92,52 @@ class Part extends Model
     }
 
     /**
+     * Parts that fit the phone on the counter, plus the brand's generic ones.
+     *
+     * Model is typed freely at intake, so it is compared with spaces and
+     * dashes stripped and case ignored, and may be the tail of the catalogue
+     * name: "s24 ultra" finds "Galaxy S24 Ultra", "iphone15" finds
+     * "iPhone 15". Matching on the tail rather than "contains" keeps
+     * "iPhone 15" from also listing every iPhone 15 Pro and Plus part.
+     *
+     * Brand narrows the match when it is one the shop knows; "Other" or a
+     * blank brand matches on model alone.
+     */
+    public function scopeForDevice(Builder $query, ?string $brand, ?string $model): Builder
+    {
+        $model = self::normaliseModel($model);
+
+        if ($model === '') {
+            return $query;
+        }
+
+        $brand = trim((string) $brand);
+        $normalisedColumn = "REPLACE(REPLACE(LOWER(COALESCE(model, '')), ' ', ''), '-', '')";
+
+        return $query->where(function (Builder $q) use ($brand, $model, $normalisedColumn) {
+            $q->where(function (Builder $fits) use ($model, $normalisedColumn) {
+                $fits->whereRaw("{$normalisedColumn} = ?", [$model])
+                    ->orWhereRaw("{$normalisedColumn} LIKE ?", ['%'.$model]);
+            });
+
+            // Speakers, buttons and the like the starter set lists once per
+            // brand rather than per phone.
+            if ($brand !== '' && $brand !== 'Other') {
+                $q->where('manufacturer', $brand)
+                    ->orWhere(fn (Builder $generic) => $generic
+                        ->where('manufacturer', $brand)
+                        ->where('model', 'Generic'));
+            }
+        });
+    }
+
+    /** "Galaxy S24-Ultra " → "galaxys24ultra", the form scopeForDevice() compares. */
+    public static function normaliseModel(?string $model): string
+    {
+        return str_replace([' ', '-'], '', strtolower(trim((string) $model)));
+    }
+
+    /**
      * At or below the reorder point.
      *
      * A reorder point of 0 means the part is listed but not stocked — the
