@@ -982,6 +982,7 @@ new class extends Component {
             x-show="show"
             x-cloak
             x-on:keydown.escape.window="show = false"
+            x-effect="document.documentElement.classList.toggle('overflow-hidden', show)"
             class="fixed inset-0 z-50 overflow-y-auto"
             style="display: none;">
 
@@ -1007,12 +1008,12 @@ new class extends Component {
                     x-transition:leave="ease-in duration-200"
                     x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                     x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden"
+                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full h-[90vh] flex flex-col overflow-hidden"
                     x-on:click.stop>
 
                     @if($selectedJobOrder)
                     <!-- Modal Header -->
-                    <div class="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 border-b border-indigo-700">
+                    <div class="flex-none bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 border-b border-indigo-700">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
@@ -1038,11 +1039,11 @@ new class extends Component {
                     </div>
 
                     <!-- Modal Body -->
-                    <div class="p-6 pb-24">
-                        <div class="flex flex-col lg:flex-row gap-6">
+                    <div class="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain p-6">
+                        <div class="flex flex-col lg:flex-row gap-6 lg:h-full">
 
-                            <!-- Left Column: Summary Card (static, non-scrolling) -->
-                            <div class="w-full lg:w-80 flex-none space-y-6">
+                            <!-- Left Column: Summary Card (scrolls on its own on lg+) -->
+                            <div class="w-full lg:w-80 flex-none space-y-6 lg:overflow-y-auto lg:overscroll-contain lg:pr-2">
                                 <!-- Status Card -->
                                 <div class="bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700">
                                     <h4 class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-4">Status</h4>
@@ -1202,7 +1203,7 @@ new class extends Component {
                             <div class="hidden lg:block w-px bg-zinc-100 dark:bg-zinc-800"></div>
 
                             <!-- Right Column: Details (scrollable) -->
-                            <div class="flex-1 overflow-y-auto max-h-[70vh] pr-4 pb-10">
+                            <div class="flex-1 min-w-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-4">
                                 <div class="space-y-6">
                                 
                                 <!-- Customer Information -->
@@ -1535,7 +1536,7 @@ new class extends Component {
                     </div>
 
                     <!-- Modal Footer -->
-                    <div class="sticky bottom-0 z-50 bg-zinc-50 dark:bg-zinc-800 px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
+                    <div class="flex-none bg-zinc-50 dark:bg-zinc-800 px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
                         <div class="flex items-center justify-end gap-2">
                             @php
                                 $showSend = in_array($selectedJobOrder->status->value, ['pending', 'assigned', 'awaiting_approval']);
