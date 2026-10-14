@@ -209,3 +209,107 @@ test('a quote request status must be a known one', function () {
     Volt::test('counter.quote-requests')->call('updateStatus', $request->id, 'declined');
     expect($request->fresh()->status)->toBe('declined');
 });
+
+function quotedRequest(array $attributes = []): RepairQuoteRequest
+{
+    return RepairQuoteRequest::create(array_merge([
+        'name' => 'Pedro Reyes',
+        'email' => 'pedro@example.com',
+        'phone' => '09181234567',
+        'manufacturer' => 'Samsung',
+        'model' => 'Galaxy S24',
+        'issue_description' => 'Battery drains fast',
+        'status' => 'quoted',
+        'quoted_price' => 1800,
+        'quoted_at' => now(),
+        'portal_token' => bin2hex(random_bytes(32)),
+    ], $attributes));
+}
+
+test('the quote page offers both answers while the quote is waiting', function () {
+    $request = quotedRequest();
+
+    $this->get($request->portal_url.'?action=decline')
+        ->assertOk()
+        ->assertSee('Approve Quote')
+        ->assertSee('Confirm Disapproval');
+
+    expect($request->fresh()->status)->toBe('quoted');
+});
+
+test('a customer can disapprove a quote request with a reason', function () {
+    $request = quotedRequest();
+
+    $this->post(route('customer.portal.quote.decline', $request->portal_token), ['reason' => '  Too expensive  '])
+        ->assertRedirect($request->portal_url);
+
+    expect($request->fresh())
+        ->status->toBe('declined')
+        ->decline_reason->toBe('Too expensive')
+        ->response_method->toBe('customer')
+        ->declined_at->not->toBeNull()
+        ->response_seen_at->toBeNull();
+
+    $this->get($request->portal_url)
+        ->assertSee('Quote Disapproved')
+        ->assertSee('Too expensive')
+        ->assertDontSee('Confirm Disapproval');
+});
+
+test('a customer can approve a quote request', function () {
+    $request = quotedRequest();
+
+    $this->post(route('customer.portal.quote.accept', $request->portal_token));
+
+    expect($request->fresh())
+        ->status->toBe('approved')
+        ->approved_at->not->toBeNull()
+        ->response_method->toBe('customer');
+});
+
+test('an answered quote request cannot be answered again', function () {
+    $request = quotedRequest();
+    $this->post(route('customer.portal.quote.accept', $request->portal_token));
+
+    $this->post(route('customer.portal.quote.decline', $request->portal_token))
+        ->assertSessionHas('error');
+
+    expect($request->fresh()->status)->toBe('approved');
+});
+
+test('staff see a customer answer until they open it', function () {
+    $this->actingAs(decisionStaff(Role::ADMINISTRATOR));
+    $request = quotedRequest();
+    $this->post(route('customer.portal.quote.decline', $request->portal_token), ['reason' => 'Found a cheaper shop']);
+
+    expect(RepairQuoteRequest::unseenResponses()->count())->toBe(1);
+
+    $this->get(route('admin.dashboard'))->assertSee('1 new customer answer to review');
+
+    Volt::test('admin.quote-requests')
+        ->assertSee('New answer')
+        ->assertSee('Found a cheaper shop')
+        ->call('viewRequest', $request->id)
+        ->assertSee('The customer answered on the quote page');
+
+    expect(RepairQuoteRequest::unseenResponses()->count())->toBe(0);
+});
+
+test('a status set by staff is recorded as theirs and needs no review', function () {
+    $this->actingAs(decisionStaff());
+    $request = quotedRequest();
+
+    Volt::test('counter.quote-requests')->call('updateStatus', $request->id, 'declined');
+
+    expect($request->fresh())
+        ->response_method->toBe('manual')
+        ->declined_at->not->toBeNull()
+        ->and(RepairQuoteRequest::unseenResponses()->count())->toBe(0);
+
+    Volt::test('counter.quote-requests')->call('updateStatus', $request->id, 'quoted');
+
+    expect($request->fresh())
+        ->status->toBe('quoted')
+        ->declined_at->toBeNull()
+        ->response_method->toBeNull();
+});

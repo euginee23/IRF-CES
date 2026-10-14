@@ -53,6 +53,7 @@ new class extends Component {
                 // Quote Requests
                 'total_quotes' => RepairQuoteRequest::count(),
                 'pending_quotes' => RepairQuoteRequest::where('status', 'pending')->count(),
+                'unseen_quote_answers' => RepairQuoteRequest::unseenResponses()->count(),
 
                 // Services & Suppliers
                 'active_services' => Service::where('is_active', true)->count(),
@@ -237,6 +238,11 @@ new class extends Component {
                     <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Quote Requests</p>
                     <p class="text-4xl font-bold text-zinc-900 dark:text-white">{{ $stats['pending_quotes'] }}</p>
                     <p class="text-xs text-zinc-400 dark:text-zinc-500">{{ $stats['total_quotes'] }} total requests</p>
+                    @if($stats['unseen_quote_answers'] > 0)
+                        <a href="{{ route('admin.quote-requests') }}" wire:navigate class="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline">
+                            {{ $stats['unseen_quote_answers'] }} new customer {{ Str::plural('answer', $stats['unseen_quote_answers']) }} to review &rarr;
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>

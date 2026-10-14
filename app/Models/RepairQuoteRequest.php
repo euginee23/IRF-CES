@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Contracts\Contactable;
 use App\Models\Concerns\HasCustomerMessages;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class RepairQuoteRequest extends Model implements Contactable
 {
@@ -23,13 +25,49 @@ class RepairQuoteRequest extends Model implements Contactable
         'quote_notes',
         'quoted_at',
         'portal_token',
+        'approved_at',
+        'declined_at',
+        'decline_reason',
+        'response_method',
+        'response_seen_at',
     ];
 
     protected $casts = [
         'images' => 'array',
         'quoted_price' => 'decimal:2',
         'quoted_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'declined_at' => 'datetime',
+        'response_seen_at' => 'datetime',
     ];
+
+    /**
+     * Answered by the customer on the portal, and not yet opened by staff.
+     * A staff member recording the answer has seen it by definition.
+     */
+    public function scopeUnseenResponses(Builder $query): Builder
+    {
+        return $query->where('response_method', 'customer')
+            ->whereIn('status', ['approved', 'declined'])
+            ->whereNull('response_seen_at');
+    }
+
+    public function hasUnseenResponse(): bool
+    {
+        return $this->response_method === 'customer'
+            && in_array($this->status, ['approved', 'declined'], true)
+            && $this->response_seen_at === null;
+    }
+
+    /** When the current answer was given, whichever way it went. */
+    public function respondedAt(): ?Carbon
+    {
+        return match ($this->status) {
+            'approved' => $this->approved_at,
+            'declined' => $this->declined_at,
+            default => null,
+        };
+    }
 
     public function getPortalUrlAttribute(): string
     {

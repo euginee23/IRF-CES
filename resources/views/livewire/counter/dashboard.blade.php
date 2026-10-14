@@ -19,6 +19,7 @@ new class extends Component {
                 'pending_orders' => JobOrder::where('status', JobOrderStatus::PENDING)->count(),
                 'awaiting_approval' => JobOrder::where('status', JobOrderStatus::AWAITING_APPROVAL)->count(),
                 'pending_quotes' => RepairQuoteRequest::where('status', 'pending')->count(),
+                'unseen_quote_answers' => RepairQuoteRequest::unseenResponses()->count(),
             ],
             'recentOrders' => JobOrder::with(['receivedBy', 'assignedTo'])->latest()->take(5)->get(),
         ];
@@ -114,6 +115,11 @@ new class extends Component {
                     <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Pending Quotes</p>
                     <p class="text-4xl font-bold text-purple-600 dark:text-purple-400">{{ $todayStats['pending_quotes'] }}</p>
                     <p class="text-xs text-zinc-400 dark:text-zinc-500">quote requests to review</p>
+                    @if($todayStats['unseen_quote_answers'] > 0)
+                        <a href="{{ route('counter.quote-requests') }}" wire:navigate class="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline">
+                            {{ $todayStats['unseen_quote_answers'] }} new customer {{ Str::plural('answer', $todayStats['unseen_quote_answers']) }} to review &rarr;
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>

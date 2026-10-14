@@ -22,13 +22,15 @@ class QuoteRequestSender
 
     public function send(RepairQuoteRequest $quoteRequest, float $price, ?string $notes = null): void
     {
+        // A fresh quote wipes any earlier answer: the customer is being
+        // asked again, about this price.
         $quoteRequest->update([
             'quoted_price' => $price,
             'quote_notes' => $notes !== null && trim($notes) !== '' ? trim($notes) : null,
             'quoted_at' => now(),
             'portal_token' => $quoteRequest->portal_token ?? bin2hex(random_bytes(32)),
             'status' => 'quoted',
-        ]);
+        ] + QuoteRequestResponses::CLEARED);
 
         Mail::to($quoteRequest->email)->send(new QuoteRequestMail($quoteRequest));
     }

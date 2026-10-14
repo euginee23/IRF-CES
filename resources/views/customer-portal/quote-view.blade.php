@@ -150,31 +150,62 @@
                         @if($action === 'approve')
                             Tap the button below to confirm you approve this quote.
                         @elseif($action === 'decline')
-                            Tap the button below to confirm you disapprove this quote.
+                            Tell us why if you like, then confirm you disapprove this quote.
                         @else
                             Would you like to proceed with this repair?
                         @endif
                     </p>
-                    <div class="flex items-center justify-center gap-4">
+                    <div class="max-w-md mx-auto space-y-3">
                         <form action="{{ route('customer.portal.quote.accept', ['token' => $quoteRequest->portal_token]) }}" method="POST">
                             @csrf
-                            <button type="submit" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+                            <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
                                 Approve Quote
                             </button>
                         </form>
-                        <form action="{{ route('customer.portal.quote.decline', ['token' => $quoteRequest->portal_token]) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center gap-2 px-6 py-3 {{ $action === 'decline' ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-300' }} font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200 cursor-pointer">
+                        {{-- Disapprove asks for a reason before it answers, behind a
+                             <details> so the page needs no JavaScript. It starts open
+                             when the customer came from the email's Disapprove button. --}}
+                        <details class="rounded-xl border border-rose-200 dark:border-rose-800" @if($action === 'decline') open @endif>
+                            <summary class="list-none cursor-pointer w-full inline-flex items-center justify-center gap-2 px-6 py-3 text-rose-700 dark:text-rose-300 font-semibold rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/20">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
-                                Disapprove
-                            </button>
-                        </form>
+                                Disapprove Quote
+                            </summary>
+                            <form action="{{ route('customer.portal.quote.decline', ['token' => $quoteRequest->portal_token]) }}" method="POST" class="p-4 pt-1 space-y-3">
+                                @csrf
+                                <label for="reason" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">Reason <span class="font-normal text-zinc-500">(optional)</span></label>
+                                <textarea id="reason" name="reason" rows="3" maxlength="1000" placeholder="e.g. Too expensive, found another shop"
+                                    class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500">{{ old('reason') }}</textarea>
+                                @error('reason')
+                                    <p class="text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                                @enderror
+                                <button type="submit" class="w-full px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-lg cursor-pointer">
+                                    Confirm Disapproval
+                                </button>
+                            </form>
+                        </details>
                     </div>
+                </div>
+            @elseif(in_array($quoteRequest->status, ['approved', 'declined'], true) && $quoteRequest->respondedAt())
+                {{-- The answer on record, so a customer opening the link again
+                     sees what they chose rather than a page with no buttons. --}}
+                <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg border-2 {{ $quoteRequest->status === 'approved' ? 'border-emerald-300 dark:border-emerald-800' : 'border-rose-300 dark:border-rose-800' }} p-6 text-center">
+                    <p class="text-base font-bold {{ $quoteRequest->status === 'approved' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
+                        {{ $quoteRequest->status === 'approved' ? 'Quote Approved' : 'Quote Disapproved' }}
+                    </p>
+                    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                        on {{ $quoteRequest->respondedAt()->format('F d, Y \a\t h:i A') }}
+                    </p>
+                    @if($quoteRequest->status === 'declined' && $quoteRequest->decline_reason)
+                        <p class="mt-3 text-sm text-zinc-700 dark:text-zinc-300"><span class="font-semibold">Reason:</span> {{ $quoteRequest->decline_reason }}</p>
+                    @endif
+                    <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ $quoteRequest->status === 'approved' ? 'We will contact you to arrange the repair.' : 'Changed your mind? Contact us or submit a new request.' }}
+                    </p>
                 </div>
             @endif
         </div>

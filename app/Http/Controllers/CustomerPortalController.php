@@ -6,6 +6,7 @@ use App\Enums\JobOrderStatus;
 use App\Models\JobOrder;
 use App\Models\RepairQuoteRequest;
 use App\Services\JobOrders\JobOrderWorkflow;
+use App\Services\Quotes\QuoteRequestResponses;
 use App\Services\TrackingCode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -164,7 +165,7 @@ class CustomerPortalController extends Controller
                 ->with('error', 'This quote cannot be approved at this time.');
         }
 
-        $quoteRequest->update(['status' => 'approved']);
+        app(QuoteRequestResponses::class)->approve($quoteRequest, 'customer');
 
         return redirect()->route('customer.portal.quote', ['token' => $token])
             ->with('success', 'Thank you! Your repair quote has been approved. We will contact you to arrange the repair.');
@@ -173,8 +174,12 @@ class CustomerPortalController extends Controller
     /**
      * Decline a repair quote via customer portal.
      */
-    public function quoteDecline(string $token): RedirectResponse
+    public function quoteDecline(Request $request, string $token): RedirectResponse
     {
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
         $quoteRequest = RepairQuoteRequest::where('portal_token', $token)->firstOrFail();
 
         if ($quoteRequest->status !== 'quoted') {
@@ -182,7 +187,7 @@ class CustomerPortalController extends Controller
                 ->with('error', 'This quote cannot be disapproved at this time.');
         }
 
-        $quoteRequest->update(['status' => 'declined']);
+        app(QuoteRequestResponses::class)->decline($quoteRequest, 'customer', $validated['reason'] ?? null);
 
         return redirect()->route('customer.portal.quote', ['token' => $token])
             ->with('info', 'The quote has been disapproved. If you change your mind, feel free to submit a new request.');

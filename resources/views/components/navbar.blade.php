@@ -1,4 +1,6 @@
 @auth
+    {{-- Customer answers to quotes that no staff member has opened yet. --}}
+    @php($unseenQuoteAnswers = auth()->user()->isAdministrator() || auth()->user()->isCounterStaff() ? \App\Models\RepairQuoteRequest::unseenResponses()->count() : 0)
     <!-- Authenticated top navbar matching landing page -->
     <nav class="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-700 shadow-sm dark:shadow-black/30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -23,6 +25,9 @@
                         </a>
                         <a href="{{ route('admin.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Quotes
+                            @if($unseenQuoteAnswers > 0)
+                                <span class="ms-1 inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-bold text-white bg-amber-500 rounded-full" title="Customer answers not reviewed yet">{{ $unseenQuoteAnswers }}</span>
+                            @endif
                         </a>
                         <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Inventory
@@ -43,6 +48,9 @@
                     @if(auth()->user()->isCounterStaff())
                         <a href="{{ route('counter.quote-requests') }}" wire:navigate class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ request()->is('counter/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700' }}">
                             Quotes
+                            @if($unseenQuoteAnswers > 0)
+                                <span class="ms-1 inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-bold text-white bg-amber-500 rounded-full" title="Customer answers not reviewed yet">{{ $unseenQuoteAnswers }}</span>
+                            @endif
                         </a>
                     @endif
                     @if(auth()->user()->isAdministrator() || auth()->user()->isCounterStaff())
@@ -172,6 +180,9 @@
                         </a>
                         <a href="{{ route('admin.quote-requests') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Quotes
+                            @if($unseenQuoteAnswers > 0)
+                                <span class="ms-1 inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-bold text-white bg-amber-500 rounded-full" title="Customer answers not reviewed yet">{{ $unseenQuoteAnswers }}</span>
+                            @endif
                         </a>
                         <a href="{{ route('admin.parts-inventory') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('admin/parts-inventory') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Inventory
@@ -189,6 +200,9 @@
                     @if(auth()->user()->isCounterStaff())
                         <a href="{{ route('counter.quote-requests') }}" wire:navigate class="block px-3 py-2 rounded-lg text-sm font-medium {{ request()->is('counter/quote-requests') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-zinc-700 dark:text-zinc-300' }}">
                             Quotes
+                            @if($unseenQuoteAnswers > 0)
+                                <span class="ms-1 inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-bold text-white bg-amber-500 rounded-full" title="Customer answers not reviewed yet">{{ $unseenQuoteAnswers }}</span>
+                            @endif
                         </a>
                     @endif
                     @if(auth()->user()->isAdministrator() || auth()->user()->isCounterStaff())

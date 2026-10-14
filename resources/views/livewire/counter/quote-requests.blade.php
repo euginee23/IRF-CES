@@ -3,6 +3,7 @@
 use App\Contracts\Contactable;
 use App\Livewire\Concerns\ContactsCustomer;
 use App\Models\RepairQuoteRequest;
+use App\Services\Quotes\QuoteRequestResponses;
 use App\Services\Quotes\QuoteRequestSender;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -42,18 +43,27 @@ new class extends Component {
             });
         }
 
-        if ($this->statusFilter) {
+        if ($this->statusFilter === 'unseen') {
+            $query->unseenResponses();
+        } elseif ($this->statusFilter) {
             $query->where('status', $this->statusFilter);
         }
 
         return [
             'requests' => $query->latest()->paginate(15),
+            'unseenCount' => RepairQuoteRequest::unseenResponses()->count(),
         ];
     }
 
     public function viewRequest(int $id): void
     {
         $this->selectedRequest = RepairQuoteRequest::findOrFail($id);
+
+        // Opening the request is what marks the customer's answer as seen.
+        if ($this->selectedRequest->hasUnseenResponse()) {
+            $this->selectedRequest->update(['response_seen_at' => now()]);
+        }
+
         $this->quotedPrice = $this->selectedRequest->quoted_price ? (string) $this->selectedRequest->quoted_price : '';
         $this->quoteNotes = $this->selectedRequest->quote_notes ?? '';
         $this->showModal = true;
@@ -88,7 +98,7 @@ new class extends Component {
         }
 
         $request = RepairQuoteRequest::findOrFail($id);
-        $request->update(['status' => $status]);
+        app(QuoteRequestResponses::class)->setStatus($request, $status);
 
         if ($this->selectedRequest && $this->selectedRequest->id === $id) {
             $this->selectedRequest->refresh();
@@ -150,6 +160,23 @@ new class extends Component {
             </div>
         </div>
 
+        <!-- Customer answers nobody has opened yet -->
+        @if($unseenCount > 0 && $statusFilter !== 'unseen')
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-5 py-4">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-none text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                        {{ $unseenCount }} {{ Str::plural('customer', $unseenCount) }} answered {{ $unseenCount === 1 ? 'their quote' : 'their quotes' }} and {{ $unseenCount === 1 ? 'hasn\'t' : 'haven\'t' }} been reviewed yet.
+                    </p>
+                </div>
+                <button type="button" wire:click="$set('statusFilter', 'unseen')" class="flex-none px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 rounded-lg cursor-pointer">
+                    Show them
+                </button>
+            </div>
+        @endif
+
         <!-- Filters -->
         <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 p-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -174,6 +201,7 @@ new class extends Component {
                         class="w-full px-4 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
                     >
                         <option value="">All Statuses</option>
+                        <option value="unseen">New customer answers</option>
                         <option value="pending">Pending</option>
                         <option value="reviewed">Reviewed</option>
                         <option value="quoted">Quoted</option>
@@ -200,7 +228,7 @@ new class extends Component {
                     </thead>
                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                         @forelse($requests as $request)
-                            <tr class="hover:bg-blue-50/50 dark:hover:bg-zinc-900/70 transition-all duration-150">
+                            <tr class="{{ $request->hasUnseenResponse() ? 'bg-amber-50/70 dark:bg-amber-900/10' : '' }} hover:bg-blue-50/50 dark:hover:bg-zinc-900/70 transition-all duration-150">
                                 <td class="px-6 py-5">
                                     <div class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $request->name }}</div>
                                     <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ $request->email }}</div>
@@ -238,6 +266,17 @@ new class extends Component {
                                         <option value="approved" {{ $request->status === 'approved' ? 'selected' : '' }}>Approved</option>
                                         <option value="declined" {{ $request->status === 'declined' ? 'selected' : '' }}>Disapproved</option>
                                     </select>
+                                    @if($request->respondedAt())
+                                        <div class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                                            {{ $request->response_method === 'customer' ? 'By customer' : 'By staff' }} · {{ $request->respondedAt()->format('M d, h:i A') }}
+                                        </div>
+                                        @if($request->status === 'declined' && $request->decline_reason)
+                                            <div class="mt-0.5 text-xs text-rose-600 dark:text-rose-400 max-w-[12rem] truncate" title="{{ $request->decline_reason }}">“{{ $request->decline_reason }}”</div>
+                                        @endif
+                                    @endif
+                                    @if($request->hasUnseenResponse())
+                                        <span class="mt-1.5 inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 bg-amber-200 dark:text-amber-200 dark:bg-amber-900/50 rounded-full">New answer</span>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-5 whitespace-nowrap">
                                     <div class="text-sm text-zinc-600 dark:text-zinc-400">
@@ -352,6 +391,26 @@ new class extends Component {
                                     <option value="declined" {{ $selectedRequest->status === 'declined' ? 'selected' : '' }}>Disapproved</option>
                                 </select>
                             </div>
+
+                            <!-- Customer's Answer -->
+                            @if($selectedRequest->respondedAt())
+                                @php($approved = $selectedRequest->status === 'approved')
+                                <div class="rounded-xl p-5 border {{ $approved ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800' }}">
+                                    <h4 class="text-lg font-semibold {{ $approved ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300' }}">
+                                        {{ $approved ? 'Quote Approved' : 'Quote Disapproved' }}
+                                    </h4>
+                                    <p class="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                                        {{ $selectedRequest->response_method === 'customer' ? 'The customer answered on the quote page' : 'Recorded by staff' }}
+                                        on {{ $selectedRequest->respondedAt()->format('M d, Y \a\t h:i A') }}.
+                                    </p>
+                                    @if(! $approved)
+                                        <p class="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+                                            <span class="font-semibold">Reason:</span>
+                                            {{ $selectedRequest->decline_reason ?? 'None given' }}
+                                        </p>
+                                    @endif
+                                </div>
+                            @endif
 
                             <!-- Customer Information -->
                             <div class="bg-zinc-50 dark:bg-zinc-900/50 rounded-xl p-5">
