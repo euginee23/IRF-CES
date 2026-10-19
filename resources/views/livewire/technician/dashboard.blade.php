@@ -319,7 +319,7 @@ new class extends Component {
                 x-transition:leave="ease-in duration-200"
                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full h-[90vh] flex flex-col overflow-hidden"
+                class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full h-[90dvh] flex flex-col overflow-hidden"
                 x-on:click.stop>
 
                 @if($selectedJobOrder)
@@ -396,25 +396,6 @@ new class extends Component {
                                     @endif
                                 </div>
                             </div>
-
-                            <!-- Quick Status Update -->
-                            @if(!in_array($selectedJobOrder->status->value, ['done', 'completed', 'delivered', 'cancelled']))
-                                <div class="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-800">
-                                    <h4 class="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide mb-4">Update Status</h4>
-                                    <div class="space-y-2">
-                                        @if(in_array($selectedJobOrder->status->value, ['assigned', 'pending', 'approved']))
-                                            <button wire:click="updateStatus({{ $selectedJobOrder->id }}, 'in_progress')" class="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all cursor-pointer">
-                                                Start Working
-                                            </button>
-                                        @endif
-                                        @if($selectedJobOrder->status->value === 'in_progress')
-                                            <button wire:click="updateStatus({{ $selectedJobOrder->id }}, 'done')" class="w-full px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all cursor-pointer">
-                                                Mark as Done
-                                            </button>
-                                        @endif
-                                    </div>
-                                </div>
-                            @endif
                         </div>
 
                         <!-- Divider -->
@@ -632,9 +613,34 @@ new class extends Component {
                     </div>
                 </div>
 
-                <!-- Modal Footer -->
+                <!-- Modal Footer (status actions live here so they stay visible while the body scrolls) -->
                 <div class="flex-none bg-zinc-50 dark:bg-zinc-800 px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
-                    <div class="flex items-center justify-end gap-2">
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                        @if(in_array($selectedJobOrder->status->value, ['assigned', 'pending', 'approved']))
+                            <button
+                                wire:click="updateStatus({{ $selectedJobOrder->id }}, 'in_progress')"
+                                wire:loading.attr="disabled"
+                                wire:target="updateStatus"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Start Working
+                            </button>
+                        @endif
+                        @if($selectedJobOrder->status->value === 'in_progress')
+                            <button
+                                wire:click="updateStatus({{ $selectedJobOrder->id }}, 'done')"
+                                wire:loading.attr="disabled"
+                                wire:target="updateStatus"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                Mark as Done
+                            </button>
+                        @endif
                         <button
                             wire:click="closeViewModal"
                             class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-zinc-600 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer">

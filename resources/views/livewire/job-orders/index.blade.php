@@ -1008,7 +1008,7 @@ new class extends Component {
                     x-transition:leave="ease-in duration-200"
                     x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                     x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full h-[90vh] flex flex-col overflow-hidden"
+                    class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-5xl w-full h-[90dvh] flex flex-col overflow-hidden"
                     x-on:click.stop>
 
                     @if($selectedJobOrder)
@@ -1537,7 +1537,7 @@ new class extends Component {
 
                     <!-- Modal Footer -->
                     <div class="flex-none bg-zinc-50 dark:bg-zinc-800 px-6 py-4 border-t border-zinc-200 dark:border-zinc-700">
-                        <div class="flex items-center justify-end gap-2">
+                        <div class="flex flex-wrap items-center justify-end gap-2">
                             @php
                                 $showSend = in_array($selectedJobOrder->status->value, ['pending', 'assigned', 'awaiting_approval']);
                                 $sendLabel = $selectedJobOrder->status->value === 'awaiting_approval' ? 'Send Quote' : 'Resend Quote';
