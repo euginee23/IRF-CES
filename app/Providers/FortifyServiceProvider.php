@@ -49,7 +49,9 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::verifyEmailView(fn () => view('livewire.auth.verify-email'));
         Fortify::confirmPasswordView(fn () => view('livewire.auth.confirm-password'));
         Fortify::registerView(fn () => view('livewire.auth.register'));
-        Fortify::requestPasswordResetLinkView(fn () => view('livewire.auth.forgot-password'));
+        // Host page that mounts the forgot-password Volt component; rendering the
+        // component file as a plain view skips its PHP class ($step is undefined).
+        Fortify::requestPasswordResetLinkView(fn () => view('auth.forgot-password'));
 
         // Reset password view not needed — the forgot-password Volt component
         // handles the entire flow (email → 6-digit code → new password)

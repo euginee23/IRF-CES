@@ -126,7 +126,7 @@ new class extends Component {
     }
 }; ?>
 
-<x-layouts.auth>
+<div>
     <div class="flex flex-col gap-6">
         {{-- Step 1: Enter Email --}}
         @if($step === 1)
@@ -272,4 +272,4 @@ new class extends Component {
             <a href="{{ route('login') }}" wire:navigate class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline transition-colors">{{ __('log in') }}</a>
         </div>
     </div>
-</x-layouts.auth>
+</div>
